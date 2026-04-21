@@ -13,6 +13,7 @@ import org.freememory.pipeline.agent.debug.DebugChatModelListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.List;
 
 /**
@@ -37,6 +38,16 @@ import java.util.List;
 public final class ModelFactory
 {
     private static final Logger log = LoggerFactory.getLogger(ModelFactory.class);
+
+    /**
+     * Per-request HTTP timeout for all LLM providers.
+     *
+     * 60 s (the LangChain4j default) is too short for complex agent chains:
+     * a Halakha query may invoke 3-4 tools, each needing its own round-trip,
+     * before the final LLM completion.  3 minutes gives ample headroom while
+     * still surfacing genuine hangs within a reasonable time.
+     */
+    private static final Duration REQUEST_TIMEOUT = Duration.ofMinutes(3);
 
     private ModelFactory() {}
 
@@ -73,6 +84,7 @@ public final class ModelFactory
                         .apiKey(apiKey)
                         .modelName(modelId)
                         .maxTokens(maxTokens)
+                        .timeout(REQUEST_TIMEOUT)
                         .listeners(listeners)
                         .build();
             }
@@ -83,6 +95,7 @@ public final class ModelFactory
                         .apiKey(apiKey)
                         .modelName(modelId)
                         .maxTokens(maxTokens)
+                        .timeout(REQUEST_TIMEOUT)
                         .listeners(listeners)
                         .build();
             }
@@ -93,6 +106,7 @@ public final class ModelFactory
                         .apiKey(apiKey)
                         .modelName(modelId)
                         .maxOutputTokens(maxTokens)
+                        .timeout(REQUEST_TIMEOUT)
                         .listeners(listeners)
                         .build();
             }
@@ -103,6 +117,7 @@ public final class ModelFactory
                         .apiKey(apiKey)
                         .modelName(modelId)
                         .maxTokens(maxTokens)
+                        .timeout(REQUEST_TIMEOUT)
                         .listeners(listeners)
                         .build();
             }
