@@ -594,6 +594,14 @@ public class PipelineConfig
         // HTTP server
         // ------------------------------------------------------------------
 
+        /**
+         * Path to the SQLite links index built during Phase 1.
+         * Used by SefariaRetriever for two-hop link expansion.
+         * Set to empty string to disable link expansion.
+         */
+        @JsonProperty("linksDb")
+        private String linksDb = "data/links_index/links.db";
+
         /** Port the Vert.x HTTP server listens on. Default: 8080. */
         @JsonProperty("httpPort")
         private int httpPort = 8080;
@@ -624,6 +632,7 @@ public class PipelineConfig
         public AgentNodeConfig getTree()                           { return tree; }
         public int          getHttpPort()                          { return httpPort; }
         public boolean      isDebugMode()                          { return debugMode; }
+        public Path         linksDbPath()                          { return linksDb != null && !linksDb.isBlank() ? Path.of(linksDb) : null; }
 
         /**
          * Resolve the API key for a provider: config file first, env var fallback.

@@ -11,6 +11,8 @@ import io.qdrant.client.grpc.Common.Condition;
 import io.qdrant.client.grpc.Common.FieldCondition;
 import io.qdrant.client.grpc.Common.Filter;
 import io.qdrant.client.grpc.Common.Match;
+import io.qdrant.client.grpc.Points.ScrollPoints;
+import io.qdrant.client.grpc.Points.ScrollResponse;
 import io.qdrant.client.grpc.Points.ScoredPoint;
 import io.qdrant.client.grpc.Points.SearchPoints;
 import io.qdrant.client.grpc.Points.WithPayloadSelector;
@@ -20,9 +22,18 @@ import org.freememory.pipeline.agent.debug.DebugCollector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * LangChain4j {@link ContentRetriever} backed by Qdrant.
@@ -36,12 +47,16 @@ import java.util.Map;
  * 1. Embed the query text using OpenAI text-embedding-3-small (same model used
  *    at ingest time — vectors are in the same space).
  * 2. Issue a Qdrant vector search with optional payload filters.
- * 3. Format each scored point as a citation block:
+ * 3. Two-hop link expansion (if {@code linksDbPath} is provided and the file
+ *    exists): for the top-N primary results, look up linked refs in the SQLite
+ *    {@code links.db}, then fetch those chunks from Qdrant by ref payload match.
+ *    Linked results are appended after primary results and labelled as such.
+ * 4. Format each scored point as a citation block:
  *
  *      [Genesis 1:1-8 | Tanakh | en]
  *      In the beginning God created the heavens and the earth…
  *
- * 4. Return as a list of {@link Content} objects for LangChain4j to inject into
+ * 5. Return as a list of {@link Content} objects for LangChain4j to inject into
  *    the LLM context.
  *
  * === Payload fields used for filtering ===
@@ -57,20 +72,29 @@ public class SefariaRetriever implements ContentRetriever
 {
     private static final Logger log = LoggerFactory.getLogger(SefariaRetriever.class);
 
-    private final QdrantClient   qdrant;
-    private final EmbeddingModel embeddingModel;
-    private final String         collectionName;
+    /** How many primary results to expand into linked texts. */
+    private static final int LINK_EXPANSION_TOP_N = 3;
+
+    /** Max linked refs to fetch per primary result (avoids exploding context). */
+    private static final int MAX_LINKS_PER_REF    = 5;
+
+    private final QdrantClient    qdrant;
+    private final EmbeddingModel  embeddingModel;
+    private final String          collectionName;
     private final RetrievalConfig config;
+    private final Path            linksDbPath;
 
     public SefariaRetriever(QdrantClient qdrant,
                             EmbeddingModel embeddingModel,
                             String collectionName,
-                            RetrievalConfig config)
+                            RetrievalConfig config,
+                            Path linksDbPath)
     {
-        this.qdrant          = qdrant;
-        this.embeddingModel  = embeddingModel;
-        this.collectionName  = collectionName;
-        this.config          = config;
+        this.qdrant         = qdrant;
+        this.embeddingModel = embeddingModel;
+        this.collectionName = collectionName;
+        this.config         = config;
+        this.linksDbPath    = linksDbPath;
     }
 
     // ------------------------------------------------------------------
@@ -122,9 +146,21 @@ public class SefariaRetriever implements ContentRetriever
                 results.size(), queryText.length() > 60
                         ? queryText.substring(0, 60) + "…" : queryText);
 
-        // 4. Format, record for debug panel, and return
-        List<Content> contents = new ArrayList<>();
-        List<String> debugRefs = new ArrayList<>();
+        // 4. Two-hop link expansion: collect refs from top-N primary results,
+        //    look them up in links.db, then fetch the linked chunks from Qdrant.
+        //    We track all primary refs so we can deduplicate later.
+        Set<String> primaryRefs = new LinkedHashSet<>();
+        for (ScoredPoint p : results)
+        {
+            String r = str(p.getPayload(), "ref");
+            if (r != null) primaryRefs.add(r);
+        }
+
+        List<ScoredPoint> linkedPoints = fetchLinkedPoints(primaryRefs);
+
+        // 5. Format primary results, record for debug panel, and return
+        List<Content>  contents  = new ArrayList<>();
+        List<String>   debugRefs = new ArrayList<>();
 
         for (ScoredPoint point : results)
         {
@@ -140,7 +176,6 @@ public class SefariaRetriever implements ContentRetriever
             String category = str(payload, "category");
             String language = str(payload, "language");
 
-            // Citation header + text block
             String formatted = String.format("[%s | %s | %s | %s]\n%s",
                     ref, title, category, language, text);
 
@@ -149,18 +184,188 @@ public class SefariaRetriever implements ContentRetriever
                     ref, category, language, point.getScore()));
         }
 
+        // Append linked results (deduplication against primary set already done
+        // inside fetchLinkedPoints).
+        List<String> linkedDebugRefs = new ArrayList<>();
+        for (ScoredPoint point : linkedPoints)
+        {
+            Map<String, Value> payload = point.getPayload();
+            String text = str(payload, "text");
+            if (text == null || text.isBlank())
+            {
+                continue;
+            }
+
+            String ref      = str(payload, "ref");
+            String title    = str(payload, "title");
+            String category = str(payload, "category");
+            String language = str(payload, "language");
+
+            // Mark these explicitly so the LLM knows they were added via link graph
+            String formatted = String.format("[%s | %s | %s | %s | linked]\n%s",
+                    ref, title, category, language, text);
+
+            contents.add(Content.from(TextSegment.from(formatted)));
+            linkedDebugRefs.add(String.format("%s (%s/%s)", ref, category, language));
+        }
+
         // Record retrieval summary in the debug trace
         if (!debugRefs.isEmpty())
         {
-            DebugCollector.record("📖 Qdrant → " + debugRefs.size() + " chunk(s): "
-                    + String.join(", ", debugRefs));
+            DebugCollector.record("📖 Qdrant primary → " + debugRefs.size()
+                    + " chunk(s): " + String.join(", ", debugRefs));
         }
         else
         {
-            DebugCollector.record("📖 Qdrant → no results");
+            DebugCollector.record("📖 Qdrant primary → no results");
+        }
+
+        if (!linkedDebugRefs.isEmpty())
+        {
+            DebugCollector.record("🔗 Linked expansion → " + linkedDebugRefs.size()
+                    + " chunk(s): " + String.join(", ", linkedDebugRefs));
         }
 
         return contents;
+    }
+
+    // ------------------------------------------------------------------
+    // Two-hop link expansion
+    // ------------------------------------------------------------------
+
+    /**
+     * For the top {@value LINK_EXPANSION_TOP_N} refs in {@code primaryRefs},
+     * query links.db to find all linked refs, then fetch those chunks from
+     * Qdrant by payload match.  Refs already in {@code primaryRefs} are
+     * excluded to avoid duplicating context.
+     *
+     * Returns an empty list if links.db is not configured or does not exist.
+     */
+    private List<ScoredPoint> fetchLinkedPoints(Set<String> primaryRefs)
+    {
+        if (linksDbPath == null || !Files.exists(linksDbPath))
+        {
+            return List.of();
+        }
+
+        if (primaryRefs.isEmpty())
+        {
+            return List.of();
+        }
+
+        // Only expand the first LINK_EXPANSION_TOP_N primary refs
+        List<String> refsToExpand = primaryRefs.stream()
+                .limit(LINK_EXPANSION_TOP_N)
+                .toList();
+
+        Set<String> linkedRefs = lookupLinkedRefs(refsToExpand, primaryRefs);
+        if (linkedRefs.isEmpty())
+        {
+            return List.of();
+        }
+
+        log.debug("Link expansion: {} primary refs → {} linked refs",
+                refsToExpand.size(), linkedRefs.size());
+
+        // Fetch each linked ref from Qdrant via payload match (scroll, not search).
+        List<ScoredPoint> points = new ArrayList<>();
+        for (String linkedRef : linkedRefs)
+        {
+            List<ScoredPoint> fetched = fetchByRef(linkedRef);
+            points.addAll(fetched);
+        }
+        return points;
+    }
+
+    /**
+     * Query links.db for refs linked to any of {@code refsToExpand}.
+     * Excludes refs already in {@code excludeRefs} to avoid duplication.
+     */
+    private Set<String> lookupLinkedRefs(List<String> refsToExpand, Set<String> excludeRefs)
+    {
+        Set<String> result = new LinkedHashSet<>();
+
+        String url = "jdbc:sqlite:" + linksDbPath.toAbsolutePath();
+        String sql = "SELECT ref2, connection_type FROM links WHERE ref1 = ?"
+                   + " UNION "
+                   + "SELECT ref1, connection_type FROM links WHERE ref2 = ?"
+                   + " LIMIT ?";
+
+        try (Connection conn = DriverManager.getConnection(url))
+        {
+            for (String ref : refsToExpand)
+            {
+                try (PreparedStatement ps = conn.prepareStatement(sql))
+                {
+                    ps.setString(1, ref);
+                    ps.setString(2, ref);
+                    ps.setInt(3, MAX_LINKS_PER_REF);
+
+                    try (ResultSet rs = ps.executeQuery())
+                    {
+                        while (rs.next())
+                        {
+                            String linked = rs.getString(1);
+                            if (linked != null && !linked.isBlank()
+                                    && !excludeRefs.contains(linked))
+                            {
+                                result.add(linked);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (SQLException e)
+        {
+            log.warn("links.db query failed: {}", e.getMessage());
+        }
+
+        return result;
+    }
+
+    /**
+     * Fetch all Qdrant points whose {@code ref} payload field exactly matches
+     * the given ref string.  Uses a scroll (payload filter) rather than a vector
+     * search since we know the exact ref we want.
+     *
+     * Returns at most a small number of points — typically one per language
+     * (one English chunk + one Hebrew chunk for the same ref).
+     */
+    private List<ScoredPoint> fetchByRef(String ref)
+    {
+        Filter refFilter = Filter.newBuilder()
+                .addMust(keywordMatch("ref", ref))
+                .build();
+
+        ScrollPoints scroll = ScrollPoints.newBuilder()
+                .setCollectionName(collectionName)
+                .setFilter(refFilter)
+                .setLimit(4)          // one per language variant is enough
+                .setWithPayload(WithPayloadSelector.newBuilder().setEnable(true).build())
+                .build();
+
+        try
+        {
+            ScrollResponse response = qdrant.scrollAsync(scroll).get();
+            // ScrollResponse returns RetrievedPoint; wrap as ScoredPoint with score=0
+            List<ScoredPoint> result = new ArrayList<>();
+            for (var rp : response.getResultList())
+            {
+                // Convert RetrievedPoint → ScoredPoint (score unused for linked results)
+                result.add(ScoredPoint.newBuilder()
+                        .setId(rp.getId())
+                        .putAllPayload(rp.getPayload())
+                        .setScore(0f)
+                        .build());
+            }
+            return result;
+        }
+        catch (Exception e)
+        {
+            log.warn("Qdrant scroll for linked ref '{}' failed: {}", ref, e.getMessage());
+            return List.of();
+        }
     }
 
     // ------------------------------------------------------------------

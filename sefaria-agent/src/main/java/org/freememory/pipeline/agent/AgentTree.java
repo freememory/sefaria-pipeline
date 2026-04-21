@@ -148,7 +148,8 @@ public class AgentTree
         SefariaRetriever retriever = new SefariaRetriever(
                 qdrant, embeddingModel,
                 agentConfig.getCollectionName(),
-                cfg.getRetrieval());
+                cfg.getRetrieval(),
+                agentConfig.linksDbPath());
 
         // Merge global tools + leaf-specific tools (global first, then per-leaf extras)
         List<String> allToolNames = new ArrayList<>(agentConfig.getGlobalTools());

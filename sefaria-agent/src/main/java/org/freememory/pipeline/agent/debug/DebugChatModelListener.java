@@ -1,43 +1,72 @@
 package org.freememory.pipeline.agent.debug;
 
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
+import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
+import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.listener.ChatModelErrorContext;
 import dev.langchain4j.model.chat.listener.ChatModelListener;
 import dev.langchain4j.model.chat.listener.ChatModelRequestContext;
 import dev.langchain4j.model.chat.listener.ChatModelResponseContext;
 
+import java.util.List;
+
 /**
- * Intercepts LangChain4j chat model calls and records tool activity to
- * {@link DebugCollector} so the HTTP response can include a debug trace.
+ * Intercepts LangChain4j chat model calls and records debug events to
+ * {@link DebugCollector} so the HTTP response can include a full trace.
  *
- * Two events are captured per tool invocation:
+ * Three categories of event are recorded:
  *
- *   ⚙ toolName({"arg":"value"})          — the LLM requested this tool call
- *   ↩ toolName → result text (truncated) — the tool's return value
- *
- * The listener is attached to all models (leaf + router) but the router
- * never issues tool calls, so it contributes nothing to the debug output.
+ *   📋 Full augmented prompt  — system + augmented user message on the initial
+ *                               call of each turn (before any tool calls).
+ *   ⚙ toolName({args})       — tool call requested by the LLM.
+ *   ↩ toolName → result      — tool result sent back to the LLM (truncated).
  */
 public class DebugChatModelListener implements ChatModelListener
 {
-    private static final int MAX_RESULT_LEN = 600;
+    private static final int MAX_RESULT_LEN  = 600;
+    private static final int MAX_PROMPT_LEN  = 3000;
 
-    /** Called just before each LLM request — captures tool results from previous turns. */
+    /**
+     * Called just before each LLM request.
+     *
+     * On the initial call of a turn (no tool-result messages present yet) the
+     * full augmented prompt is recorded so the debug panel shows exactly what
+     * was sent to the model — including the Sefaria context injected by the
+     * retrieval augmentor.
+     *
+     * On subsequent calls (tool-loop iterations) only the tool results are
+     * recorded, since the prompt itself hasn't changed.
+     */
     @Override
     public void onRequest(ChatModelRequestContext ctx)
     {
-        for (ChatMessage msg : ctx.chatRequest().messages())
+        List<ChatMessage> messages = ctx.chatRequest().messages();
+
+        boolean hasToolResults = messages.stream()
+                .anyMatch(m -> m instanceof ToolExecutionResultMessage);
+
+        if (!hasToolResults)
         {
-            if (msg instanceof ToolExecutionResultMessage result)
+            // Initial call — record the full augmented prompt.
+            recordPrompt(messages);
+        }
+        else
+        {
+            // Tool-loop iteration — record the tool results being fed back.
+            for (ChatMessage msg : messages)
             {
-                String text = result.text();
-                if (text != null && text.length() > MAX_RESULT_LEN)
+                if (msg instanceof ToolExecutionResultMessage result)
                 {
-                    text = text.substring(0, MAX_RESULT_LEN) + "…";
+                    String text = result.text();
+                    if (text != null && text.length() > MAX_RESULT_LEN)
+                    {
+                        text = text.substring(0, MAX_RESULT_LEN) + "…";
+                    }
+                    DebugCollector.record("↩ " + result.toolName() + " → " + text);
                 }
-                DebugCollector.record("↩ " + result.toolName() + " → " + text);
             }
         }
     }
@@ -57,9 +86,67 @@ public class DebugChatModelListener implements ChatModelListener
     }
 
     @Override
-    public void onError(ChatModelErrorContext ctx)
+    public void onError(ChatModelErrorContext ctx) {}
+
+    // ------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------
+
+    private static void recordPrompt(List<ChatMessage> messages)
     {
-        // Not surfaced in debug output — errors appear in the response JSON's
-        // error field and in server logs.
+        StringBuilder sb = new StringBuilder();
+        sb.append("📋 Augmented prompt (").append(messages.size()).append(" message(s)):\n");
+
+        for (ChatMessage msg : messages)
+        {
+            if (msg instanceof SystemMessage sm)
+            {
+                sb.append("\n[SYSTEM]\n").append(truncate(sm.text()));
+            }
+            else if (msg instanceof UserMessage um)
+            {
+                // Only record the last user message — it's the one that contains
+                // the injected Sefaria context.  Earlier user messages in the
+                // chat history are omitted to keep the output focused.
+                if (isLastUserMessage(msg, messages))
+                {
+                    sb.append("\n[USER — augmented]\n").append(truncate(um.singleText()));
+                }
+                else
+                {
+                    sb.append("\n[USER — history, omitted]");
+                }
+            }
+            else if (msg instanceof AiMessage am)
+            {
+                sb.append("\n[ASSISTANT — history, omitted]");
+            }
+        }
+
+        DebugCollector.record(sb.toString());
+    }
+
+    private static boolean isLastUserMessage(ChatMessage target, List<ChatMessage> messages)
+    {
+        ChatMessage lastUser = null;
+        for (ChatMessage m : messages)
+        {
+            if (m instanceof UserMessage)
+            {
+                lastUser = m;
+            }
+        }
+        return target == lastUser;
+    }
+
+    private static String truncate(String s)
+    {
+        if (s == null)
+        {
+            return "(null)";
+        }
+        return s.length() > MAX_PROMPT_LEN
+                ? s.substring(0, MAX_PROMPT_LEN) + "\n… [truncated at " + MAX_PROMPT_LEN + " chars]"
+                : s;
     }
 }

@@ -137,6 +137,7 @@
   .debug-events.visible { display: block; }
   .debug-events .call   { color: #9cdcfe; }
   .debug-events .result { color: #b5cea8; }
+  .debug-events .prompt { color: #ce9178; white-space: pre-wrap; }
 
   /* ── Thinking indicator ── */
   .thinking .bubble {
@@ -348,7 +349,10 @@ function appendMessage(role, htmlContent, meta, debugEvents) {
     const eventsDiv = document.createElement('div');
     eventsDiv.className = 'debug-events';
     eventsDiv.innerHTML = debugEvents.map(e => {
-      const cls = e.startsWith('⚙') ? 'call' : 'result';
+      const cls = e.startsWith('⚙') ? 'call'
+                : e.startsWith('↩') ? 'result'
+                : e.startsWith('📋') ? 'prompt'
+                : 'result';
       return '<div class="' + cls + '">' +
         e.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
         '</div>';
