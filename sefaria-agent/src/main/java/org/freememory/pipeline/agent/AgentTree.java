@@ -65,7 +65,8 @@ public class AgentTree
         this.qdrant         = qdrant;
         this.embeddingModel = embeddingModel;
         this.toolRegistry   = new ToolRegistry(
-                qdrant, agentConfig.getCollectionName(), agentConfig.getDefaultLocation());
+                qdrant, embeddingModel,
+                agentConfig.getCollectionName(), agentConfig.getDefaultLocation());
     }
 
     // ------------------------------------------------------------------

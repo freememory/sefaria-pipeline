@@ -1,5 +1,6 @@
 package org.freememory.pipeline.agent;
 
+import dev.langchain4j.model.embedding.EmbeddingModel;
 import io.qdrant.client.QdrantClient;
 import org.freememory.config.PipelineConfig.LocationConfig;
 import org.freememory.pipeline.agent.tools.DateTimeTools;
@@ -10,7 +11,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Maps built-in tool name strings to tool provider instances.
@@ -57,17 +60,30 @@ public class ToolRegistry
     /** Direct Sefaria text lookup by ref string (Qdrant point fetch). */
     public static final String SEFARIA_LOOKUP = "SEFARIA_LOOKUP";
 
+    /**
+     * Semantic vector search of the Sefaria database — lets the LLM issue
+     * targeted sub-queries to retrieve more sources on demand.
+     * The LLM should call this multiple times with different search angles
+     * for comprehensive, multi-source answers.
+     */
+    public static final String SEFARIA_SEARCH = "SEFARIA_SEARCH";
+
     // ------------------------------------------------------------------
     // Construction
     // ------------------------------------------------------------------
 
     private final QdrantClient   qdrant;
+    private final EmbeddingModel embeddingModel;
     private final String         collectionName;
     private final LocationConfig location;
 
-    public ToolRegistry(QdrantClient qdrant, String collectionName, LocationConfig location)
+    public ToolRegistry(QdrantClient qdrant,
+                        EmbeddingModel embeddingModel,
+                        String collectionName,
+                        LocationConfig location)
     {
         this.qdrant         = qdrant;
+        this.embeddingModel = embeddingModel;
         this.collectionName = collectionName;
         this.location       = location != null ? location : new LocationConfig();
     }
@@ -89,18 +105,29 @@ public class ToolRegistry
             return tools;
         }
 
+        // Deduplicate by class: SEFARIA_LOOKUP and SEFARIA_SEARCH both resolve to
+        // SefariaLookupTools (which exposes both @Tool methods). Registering the
+        // same class twice would create duplicate tool bindings in LangChain4j.
+        Set<Class<?>> registered = new HashSet<>();
+
         for (String name : toolNames)
         {
             Object tool = instantiate(name.toUpperCase());
-            if (tool != null)
+            if (tool == null)
+            {
+                log.warn("  Unknown built-in tool name \"{}\" — skipping. "
+                        + "Check the spelling or add it to ToolRegistry.", name);
+                continue;
+            }
+            if (registered.add(tool.getClass()))
             {
                 tools.add(tool);
                 log.debug("  Registered built-in tool: {}", name);
             }
             else
             {
-                log.warn("  Unknown built-in tool name \"{}\" — skipping. "
-                        + "Check the spelling or add it to ToolRegistry.", name);
+                log.debug("  Skipping duplicate tool class for \"{}\": {} already registered.",
+                        name, tool.getClass().getSimpleName());
             }
         }
         return tools;
@@ -117,7 +144,10 @@ public class ToolRegistry
             case DATE_TIME       -> new DateTimeTools(location.getCity(), location.getTimezone());
             case ZMANIM          -> new ZmanimTools();
             case HEBREW_CALENDAR -> new HebrewCalendarTools();
-            case SEFARIA_LOOKUP  -> new SefariaLookupTools(qdrant, collectionName);
+            // Both SEFARIA_LOOKUP and SEFARIA_SEARCH are methods on the same class.
+            // Return the same instance so only one object is registered per leaf.
+            case SEFARIA_LOOKUP,
+                 SEFARIA_SEARCH  -> new SefariaLookupTools(qdrant, embeddingModel, collectionName);
             default              -> null;
         };
     }

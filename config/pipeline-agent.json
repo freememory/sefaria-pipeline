@@ -37,8 +37,8 @@
       "timezone": "Asia/Jerusalem"
     },
 
-    "_comment_global_tools": "DATE_TIME is global — every agent needs to know the current date before calling calendar or zmanim tools.",
-    "globalTools": ["DATE_TIME"],
+    "_comment_global_tools": "DATE_TIME, SEFARIA_LOOKUP and SEFARIA_SEARCH are global — every leaf agent can fetch specific refs and issue targeted vector searches.",
+    "globalTools": ["DATE_TIME", "SEFARIA_LOOKUP", "SEFARIA_SEARCH"],
 
     "_comment_global_mcp": "MCP servers listed here are connected to every leaf agent. Leave empty if none.",
     "globalMcpServers": [],
@@ -102,7 +102,7 @@
           "description": "Weekly parasha, divrei Torah, sermon prep, Midrash and commentary on the text",
           "type":        "leaf",
           "promptFile":  "prompts/dvar_torah.txt",
-          "tools":       ["HEBREW_CALENDAR", "SEFARIA_LOOKUP"],
+          "tools":       ["HEBREW_CALENDAR"],
           "_comment_retrieval": "topK=0 disables auto-RAG. Dvar Torah queries need to resolve the parasha via HEBREW_CALENDAR first, then do targeted lookups via SEFARIA_LOOKUP. Auto-RAG on the raw query produces noise before those tool calls happen.",
           "retrieval": {
             "categories":  [],
@@ -117,7 +117,7 @@
           "description": "General questions about Jewish texts, history, theology, and thought",
           "type":        "leaf",
           "promptFile":  "prompts/general.txt",
-          "tools":       ["HEBREW_CALENDAR", "SEFARIA_LOOKUP"],
+          "tools":       ["HEBREW_CALENDAR"],
           "retrieval": {
             "categories":  [],
             "language":    null,
