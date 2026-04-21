@@ -1,11 +1,14 @@
 package org.freememory.pipeline.agent.http;
 
 import io.vertx.core.Vertx;
+import io.vertx.core.VertxOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
+
+import java.util.concurrent.TimeUnit;
 import org.freememory.pipeline.agent.AgentNode;
 import org.freememory.pipeline.agent.ConversationContext;
 import org.freememory.pipeline.agent.debug.DebugCollector;
@@ -68,7 +71,13 @@ public class AgentHttpServer
     {
         this.root       = root;
         this.memorySize = memorySize;
-        this.vertx      = Vertx.vertx();
+        // Raise the worker-thread time limit well above the default 60 s.
+        // LangChain4j calls can legitimately take several minutes when the LLM
+        // invokes multiple tools or retries after a transient API timeout —
+        // Vert.x should not log false "blocked" warnings in those cases.
+        this.vertx = Vertx.vertx(new VertxOptions()
+                .setMaxWorkerExecuteTime(5)
+                .setMaxWorkerExecuteTimeUnit(TimeUnit.MINUTES));
         this.indexHtml  = loadIndexHtml();
     }
 
