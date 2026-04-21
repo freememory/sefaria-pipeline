@@ -1,0 +1,14 @@
+<configuration>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+    <!-- Suppress noisy LangChain4j internal logs -->
+    <logger name="dev.langchain4j" level="WARN"/>
+    <logger name="io.grpc" level="WARN"/>
+    <logger name="io.qdrant" level="WARN"/>
+</configuration>

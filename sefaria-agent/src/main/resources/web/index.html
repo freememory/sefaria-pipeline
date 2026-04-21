@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sefaria Agent</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f0f0f0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    background: #2c3e50;
+    color: #fff;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  header h1 { font-size: 1.1rem; font-weight: 600; flex: 1; }
+  header .subtitle { font-size: 0.75rem; color: #aab; }
+
+  /* ── Controls bar ── */
+  .controls {
+    background: #34495e;
+    padding: 6px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .controls button {
+    background: #e74c3c;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .controls button:hover { background: #c0392b; }
+  .controls label {
+    color: #ccc;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+  }
+  #debug-check { cursor: pointer; }
+
+  /* ── Chat history ── */
+  #chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .msg { display: flex; flex-direction: column; max-width: 80%; }
+  .msg.user  { align-self: flex-end; align-items: flex-end; }
+  .msg.agent { align-self: flex-start; align-items: flex-start; }
+
+  .bubble {
+    padding: 10px 14px;
+    border-radius: 12px;
+    line-height: 1.55;
+    font-size: 0.92rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .msg.user  .bubble { background: #2980b9; color: #fff; border-bottom-right-radius: 3px; }
+  .msg.agent .bubble { background: #fff;    color: #222; border: 1px solid #ddd; border-bottom-left-radius: 3px; }
+
+  .bubble strong { font-weight: 600; }
+  .bubble em     { font-style: italic; }
+  .bubble code   { font-family: monospace; background: #f4f4f4; padding: 1px 4px; border-radius: 3px; font-size: 0.88em; color: #c0392b; }
+  .bubble pre    { background: #f4f4f4; padding: 8px; border-radius: 4px; overflow-x: auto; font-size: 0.85em; margin: 6px 0; }
+  .bubble ul, .bubble ol { padding-left: 20px; margin: 4px 0; }
+  .bubble li { margin: 2px 0; }
+  .bubble h1, .bubble h2, .bubble h3 { margin: 8px 0 4px; }
+  .bubble h1 { font-size: 1.1em; }
+  .bubble h2 { font-size: 1em; }
+  .bubble h3 { font-size: 0.95em; }
+
+  .meta {
+    font-size: 0.7rem;
+    color: #999;
+    margin-top: 4px;
+    font-style: italic;
+  }
+
+  /* ── Debug panel ── */
+  .debug-block {
+    margin-top: 6px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    overflow: hidden;
+    font-size: 0.78rem;
+    width: 100%;
+    max-width: 700px;
+  }
+  .debug-toggle {
+    background: #f7f7f7;
+    padding: 5px 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #555;
+    user-select: none;
+  }
+  .debug-toggle:hover { background: #efefef; }
+  .debug-toggle .arrow { transition: transform 0.15s; }
+  .debug-toggle.open .arrow { transform: rotate(90deg); }
+  .debug-events {
+    display: none;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 8px 12px;
+    font-family: monospace;
+    line-height: 1.6;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  .debug-events.visible { display: block; }
+  .debug-events .call   { color: #9cdcfe; }
+  .debug-events .result { color: #b5cea8; }
+
+  /* ── Thinking indicator ── */
+  .thinking .bubble {
+    color: #999;
+    font-style: italic;
+  }
+  .dot-anim::after {
+    content: '';
+    animation: dots 1.2s steps(4, end) infinite;
+  }
+  @keyframes dots {
+    0%   { content: ''; }
+    25%  { content: '.'; }
+    50%  { content: '..'; }
+    75%  { content: '...'; }
+    100% { content: ''; }
+  }
+
+  /* ── Rate-limit banner ── */
+  #rate-limit-banner {
+    display: none;
+    background: #fff3cd;
+    border-top: 1px solid #ffc107;
+    padding: 8px 20px;
+    font-size: 0.82rem;
+    color: #856404;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  #rate-limit-banner.visible { display: block; }
+
+  /* ── Input area ── */
+  #input-area {
+    background: #fff;
+    border-top: 1px solid #ddd;
+    padding: 12px 20px;
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  #msg-input {
+    flex: 1;
+    padding: 9px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    outline: none;
+    resize: none;
+    line-height: 1.4;
+    min-height: 42px;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+  #msg-input:focus { border-color: #2980b9; }
+  #send-btn {
+    background: #2980b9;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0 20px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    align-self: flex-end;
+    height: 42px;
+  }
+  #send-btn:hover    { background: #1c6ea4; }
+  #send-btn:disabled { background: #aaa; cursor: not-allowed; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📜 Sefaria Agent</h1>
+    <div class="subtitle">Jewish learning assistant</div>
+  </div>
+</header>
+
+<div class="controls">
+  <button id="new-btn" title="Start a new conversation">＋ New conversation</button>
+  <label>
+    <input type="checkbox" id="debug-check">
+    Debug mode (show tool calls)
+  </label>
+</div>
+
+<div id="chat"></div>
+
+<div id="rate-limit-banner"></div>
+
+<div id="input-area">
+  <textarea id="msg-input" placeholder="Ask a question…" rows="1"></textarea>
+  <button id="send-btn">Send</button>
+</div>
+
+<script>
+// ── Session state ──────────────────────────────────────────────────────────
+let sessionId = localStorage.getItem('sefaria_session') || '';
+
+function saveSession(id) {
+  sessionId = id;
+  localStorage.setItem('sefaria_session', id);
+}
+
+// ── DOM refs ───────────────────────────────────────────────────────────────
+const chat      = document.getElementById('chat');
+const input     = document.getElementById('msg-input');
+const sendBtn   = document.getElementById('send-btn');
+const newBtn    = document.getElementById('new-btn');
+const debugChk  = document.getElementById('debug-check');
+const rlBanner  = document.getElementById('rate-limit-banner');
+
+// ── Rate-limit countdown ───────────────────────────────────────────────────
+let rlTimer = null;
+
+function showRateLimit(seconds, pendingText) {
+  let remaining = seconds;
+  rlBanner.classList.add('visible');
+  sendBtn.disabled = true;
+
+  function tick() {
+    rlBanner.textContent =
+      `Rate limit reached — retrying in ${remaining}s…`;
+    if (remaining <= 0) {
+      clearInterval(rlTimer);
+      rlTimer = null;
+      rlBanner.classList.remove('visible');
+      rlBanner.textContent = '';
+      // Auto-retry by stuffing the original text back and sending
+      input.value = pendingText;
+      send();
+    }
+    remaining--;
+  }
+  tick();
+  rlTimer = setInterval(tick, 1000);
+}
+
+// ── Markdown-lite renderer ─────────────────────────────────────────────────
+function renderMarkdown(raw) {
+  // Escape HTML first
+  let s = raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Fenced code blocks  ```lang\n...\n```
+  s = s.replace(/```[\w]*\n([\s\S]*?)```/g, (_, code) =>
+    '<pre><code>' + code.trimEnd() + '</code></pre>');
+
+  // Inline code
+  s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+
+  // Bold and italic
+  s = s.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+  // Headings (process before paragraphs)
+  s = s.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  s = s.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
+  s = s.replace(/^# (.+)$/gm,   '<h1>$1</h1>');
+
+  // Unordered lists (consecutive - lines become a <ul>)
+  s = s.replace(/((?:^[-*] .+\n?)+)/gm, block => {
+    const items = block.trim().split('\n').map(line =>
+      '<li>' + line.replace(/^[-*] /, '') + '</li>').join('');
+    return '<ul>' + items + '</ul>\n';
+  });
+
+  // Paragraphs (blank-line separated blocks not already wrapped in tags)
+  s = s.split(/\n{2,}/).map(block => {
+    block = block.trim();
+    if (!block) return '';
+    if (/^<[hupldo]/.test(block)) return block; // already a block element
+    return '<p>' + block.replace(/\n/g, '<br>') + '</p>';
+  }).join('\n');
+
+  return s;
+}
+
+// ── Append a message bubble ────────────────────────────────────────────────
+function appendMessage(role, htmlContent, meta, debugEvents) {
+  const msg = document.createElement('div');
+  msg.className = 'msg ' + role;
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.innerHTML = htmlContent;
+  msg.appendChild(bubble);
+
+  if (meta) {
+    const m = document.createElement('div');
+    m.className = 'meta';
+    m.textContent = 'via: ' + meta;
+    msg.appendChild(m);
+  }
+
+  if (debugEvents && debugEvents.length > 0) {
+    const block = document.createElement('div');
+    block.className = 'debug-block';
+
+    const toggle = document.createElement('div');
+    toggle.className = 'debug-toggle';
+    toggle.innerHTML =
+      '<span class="arrow">▶</span>' +
+      '<span>Debug — ' + debugEvents.length + ' tool event(s)</span>';
+
+    const eventsDiv = document.createElement('div');
+    eventsDiv.className = 'debug-events';
+    eventsDiv.innerHTML = debugEvents.map(e => {
+      const cls = e.startsWith('⚙') ? 'call' : 'result';
+      return '<div class="' + cls + '">' +
+        e.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
+        '</div>';
+    }).join('');
+
+    toggle.addEventListener('click', () => {
+      const open = eventsDiv.classList.toggle('visible');
+      toggle.classList.toggle('open', open);
+    });
+
+    block.appendChild(toggle);
+    block.appendChild(eventsDiv);
+    msg.appendChild(block);
+  }
+
+  chat.appendChild(msg);
+  chat.scrollTop = chat.scrollHeight;
+  return msg;
+}
+
+// ── Thinking indicator ─────────────────────────────────────────────────────
+function showThinking() {
+  const msg = document.createElement('div');
+  msg.className = 'msg agent thinking';
+  msg.id = 'thinking';
+  msg.innerHTML = '<div class="bubble"><span class="dot-anim">Thinking</span></div>';
+  chat.appendChild(msg);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function removeThinking() {
+  const t = document.getElementById('thinking');
+  if (t) t.remove();
+}
+
+// ── Send a message ─────────────────────────────────────────────────────────
+async function send() {
+  const text = input.value.trim();
+  if (!text) return;
+  if (rlTimer) return; // already counting down, let the auto-retry fire
+
+  input.value = '';
+  input.style.height = 'auto';
+  sendBtn.disabled = true;
+
+  appendMessage('user', renderMarkdown(text), null, null);
+  showThinking();
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: text,
+        sessionId: sessionId
+      })
+    });
+    const data = await res.json();
+    removeThinking();
+
+    if (res.status === 429 && data.rateLimited) {
+      // Don't show an error bubble — just count down and auto-retry silently.
+      // Remove the user bubble we just added so it won't be duplicated on retry.
+      const bubbles = chat.querySelectorAll('.msg.user');
+      if (bubbles.length) bubbles[bubbles.length - 1].remove();
+      showRateLimit(data.retryAfter || 30, text);
+      return; // sendBtn stays disabled; showRateLimit re-enables after countdown
+    }
+
+    if (data.error) {
+      appendMessage('agent', '<em>Error: ' + data.error + '</em>', null, null);
+    } else {
+      saveSession(data.sessionId);
+      // Show debug panel whenever the checkbox is on, even if no tool calls fired.
+      const debugEvents = debugChk.checked
+        ? (data.debugEvents && data.debugEvents.length > 0
+            ? data.debugEvents
+            : ['(no tool calls this turn)'])
+        : null;
+      appendMessage('agent',
+        renderMarkdown(data.response),
+        data.routingPath,
+        debugEvents);
+    }
+  } catch (err) {
+    removeThinking();
+    appendMessage('agent', '<em>Network error: ' + err.message + '</em>', null, null);
+  }
+
+  sendBtn.disabled = false;
+  input.focus();
+}
+
+// ── New conversation ───────────────────────────────────────────────────────
+async function newConversation() {
+  try {
+    const res = await fetch('/api/new', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: sessionId })
+    });
+    const data = await res.json();
+    saveSession(data.sessionId);
+  } catch (_) {
+    // If server call fails, generate a new ID client-side
+    saveSession(crypto.randomUUID ? crypto.randomUUID() : Date.now().toString());
+  }
+  chat.innerHTML = '';
+  appendMessage('agent',
+    '<em>New conversation started. How can I help you?</em>',
+    null, null);
+  input.focus();
+}
+
+// ── Event listeners ────────────────────────────────────────────────────────
+sendBtn.addEventListener('click', send);
+
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    send();
+  }
+});
+
+// Auto-grow textarea
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+});
+
+newBtn.addEventListener('click', newConversation);
+
+// ── Init ───────────────────────────────────────────────────────────────────
+if (!sessionId) {
+  saveSession(crypto.randomUUID ? crypto.randomUUID() : Date.now().toString());
+}
+
+appendMessage('agent',
+  '<em>Shalom! Ask me anything about Jewish texts, law, or learning.</em>',
+  null, null);
+input.focus();
+</script>
+</body>
+</html>

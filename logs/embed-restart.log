@@ -1,0 +1,30 @@
+20:18:43.482 [org.freememory.scripts.EmbedIngestScript.main()] INFO  org.freememory.config.ConfigLoader - Loading config from C:\Users\micha\IdeaProjects\sefaria-pipeline\config\pipeline-full.json
+20:18:43.528 [org.freememory.scripts.EmbedIngestScript.main()] INFO  org.freememory.config.ConfigLoader - Config loaded successfully.
+20:18:43.528 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - === Sefaria Embed + Ingest Script ===
+20:18:43.528 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - Input dir:     data\processed
+20:18:43.529 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - Model:         text-embedding-3-small
+20:18:43.529 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - Batch size:    100
+20:18:43.529 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - Qdrant:        localhost:6334
+20:18:43.529 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - Collection:    sefaria_texts
+20:18:43.529 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - Skip existing: true
+20:18:43.858 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.p.embed.QdrantCollectionSetup - Collection 'sefaria_texts' already exists — skipping creation.
+20:18:43.886 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - Found 28 JSONL files to process
+20:18:43.887 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - Batch limits: 100 chunks OR 200000 chars (whichever comes first)
+20:18:43.887 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - Inter-batch delay: 0 ms  (set embed.batchDelayMs=0 to disable)
+20:18:43.887 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [1/28] Processing Chasidut_en.jsonl  (68 MB)
+20:18:46.525 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 76712 chunks in file | running totals — ingested=0 skipped=76712 errors=0
+20:18:46.525 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [2/28] Processing Chasidut_he.jsonl  (553 MB)
+20:19:05.001 [grpc-default-executor-0] ERROR io.qdrant.client.QdrantClient - Upsert operation failed
+io.grpc.StatusRuntimeException: INTERNAL: Encountered end-of-stream mid-frame
+	at io.grpc.Status.asRuntimeException(Status.java:532)
+	at io.grpc.stub.ClientCalls$UnaryStreamToFuture.onClose(ClientCalls.java:638)
+	at io.grpc.internal.ClientCallImpl.closeObserver(ClientCallImpl.java:565)
+	at io.grpc.internal.ClientCallImpl.access$100(ClientCallImpl.java:72)
+	at io.grpc.internal.ClientCallImpl$ClientStreamListenerImpl$1StreamClosed.runInternal(ClientCallImpl.java:733)
+	at io.grpc.internal.ClientCallImpl$ClientStreamListenerImpl$1StreamClosed.runInContext(ClientCallImpl.java:714)
+	at io.grpc.internal.ContextRunnable.run(ContextRunnable.java:37)
+	at io.grpc.internal.SerializingExecutor.run(SerializingExecutor.java:133)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+20:19:05.002 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Qdrant upsert failed (attempt 1/4), retrying in 2 s: io.grpc.StatusRuntimeException: INTERNAL: Encountered end-of-stream mid-frame

@@ -1,0 +1,132 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ---------------------< org.sefaria:sefaria-ingest >---------------------
+[INFO] Building Sefaria Ingest 1.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[WARNING] The POM for org.sefaria:sefaria-common:jar:1.0-SNAPSHOT is invalid, transitive dependencies (if any) will not be available: 5 problems were encountered while building the effective model for org.sefaria:sefaria-common:1.0-SNAPSHOT
+[ERROR] Invalid packaging for parent POM org.sefaria:sefaria-pipeline:1.0-SNAPSHOT, must be "pom" but is "jar" @ org.sefaria:sefaria-pipeline:1.0-SNAPSHOT
+[ERROR] 'dependencies.dependency.version' for com.fasterxml.jackson.core:jackson-databind:jar is missing. @ 
+[ERROR] 'dependencies.dependency.version' for org.slf4j:slf4j-api:jar is missing. @ 
+[ERROR] 'dependencies.dependency.version' for org.junit.jupiter:junit-jupiter:jar is missing. @ 
+[ERROR] 'dependencies.dependency.version' for org.assertj:assertj-core:jar is missing. @ 
+
+[INFO] 
+[INFO] --- exec:3.4.1:java (default-cli) @ sefaria-ingest ---
+Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-exec/1.4.0/commons-exec-1.4.0.jar
+Progress (1): 1.4/66 kBProgress (1): 2.7/66 kBProgress (1): 4.1/66 kBProgress (1): 5.5/66 kBProgress (1): 6.8/66 kBProgress (1): 8.2/66 kBProgress (1): 9.6/66 kBProgress (1): 11/66 kB Progress (1): 12/66 kBProgress (1): 14/66 kBProgress (1): 15/66 kBProgress (1): 16/66 kBProgress (1): 18/66 kBProgress (1): 19/66 kBProgress (1): 20/66 kBProgress (1): 22/66 kBProgress (1): 23/66 kBProgress (1): 25/66 kBProgress (1): 26/66 kBProgress (1): 27/66 kBProgress (1): 29/66 kBProgress (1): 30/66 kBProgress (1): 31/66 kBProgress (1): 33/66 kBProgress (1): 34/66 kBProgress (1): 36/66 kBProgress (1): 37/66 kBProgress (1): 38/66 kBProgress (1): 40/66 kBProgress (1): 41/66 kBProgress (1): 42/66 kBProgress (1): 44/66 kBProgress (1): 45/66 kBProgress (1): 46/66 kBProgress (1): 48/66 kBProgress (1): 49/66 kBProgress (1): 51/66 kBProgress (1): 52/66 kBProgress (1): 53/66 kBProgress (1): 55/66 kBProgress (1): 59/66 kBProgress (1): 63/66 kBProgress (1): 66 kB                      Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-exec/1.4.0/commons-exec-1.4.0.jar (66 kB at 80 kB/s)
+22:44:52.356 [org.freememory.scripts.EmbedIngestScript.main()] INFO  org.freememory.config.ConfigLoader - Loading config from C:\Users\micha\IdeaProjects\sefaria-pipeline\config\pipeline-full.json
+22:44:52.412 [org.freememory.scripts.EmbedIngestScript.main()] INFO  org.freememory.config.ConfigLoader - Config loaded successfully.
+22:44:52.412 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - === Sefaria Embed + Ingest Script ===
+22:44:52.412 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - Input dir:     data\processed
+22:44:52.412 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - Model:         text-embedding-3-small
+22:44:52.412 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - Batch size:    100
+22:44:52.412 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - Qdrant:        localhost:6334
+22:44:52.412 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - Collection:    sefaria_texts
+22:44:52.412 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - Skip existing: true
+22:44:52.909 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.p.embed.QdrantCollectionSetup - Collection 'sefaria_texts' already exists — skipping creation.
+22:44:52.954 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - Found 28 JSONL files to process
+22:44:52.954 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - Batch limits: 100 chunks OR 200000 chars (whichever comes first)
+22:44:52.954 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - Inter-batch delay: 0 ms  (set embed.batchDelayMs=0 to disable)
+22:44:52.954 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [1/28] Processing Chasidut_en.jsonl  (68 MB)
+22:44:56.163 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 76712 chunks in file | running totals — ingested=0 skipped=76712 errors=0
+22:44:56.163 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [2/28] Processing Chasidut_he.jsonl  (553 MB)
+22:45:11.715 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 373230 chunks in file | running totals — ingested=0 skipped=449942 errors=0
+22:45:11.716 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [3/28] Processing Halakhah_en.jsonl  (223 MB)
+22:45:18.417 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 147446 chunks in file | running totals — ingested=0 skipped=597388 errors=0
+22:45:18.417 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [4/28] Processing Halakhah_he.jsonl  (1995 MB)
+22:46:12.301 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 1347272 chunks in file | running totals — ingested=0 skipped=1944660 errors=0
+22:46:12.303 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [5/28] Processing Jewish_Thought_en.jsonl  (80 MB)
+22:46:14.476 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 76608 chunks in file | running totals — ingested=0 skipped=2021268 errors=0
+22:46:14.478 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [6/28] Processing Jewish_Thought_he.jsonl  (462 MB)
+22:46:24.816 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 348250 chunks in file | running totals — ingested=0 skipped=2369518 errors=0
+22:46:24.817 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [7/28] Processing Kabbalah_en.jsonl  (45 MB)
+22:46:26.205 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 51138 chunks in file | running totals — ingested=0 skipped=2420656 errors=0
+22:46:26.206 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [8/28] Processing Kabbalah_he.jsonl  (348 MB)
+22:46:34.514 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 291412 chunks in file | running totals — ingested=0 skipped=2712068 errors=0
+22:46:34.515 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [9/28] Processing Liturgy_en.jsonl  (114 MB)
+22:46:39.729 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 200398 chunks in file | running totals — ingested=0 skipped=2912466 errors=0
+22:46:39.730 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [10/28] Processing Liturgy_he.jsonl  (169 MB)
+22:46:45.354 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 250120 chunks in file | running totals — ingested=0 skipped=3162586 errors=0
+22:46:45.355 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [11/28] Processing Midrash_en.jsonl  (96 MB)
+22:46:47.617 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 64966 chunks in file | running totals — ingested=0 skipped=3227552 errors=0
+22:46:47.619 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [12/28] Processing Midrash_he.jsonl  (402 MB)
+22:46:57.297 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 388464 chunks in file | running totals — ingested=0 skipped=3616016 errors=0
+22:46:57.299 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [13/28] Processing Mishnah_en.jsonl  (152 MB)
+22:47:01.292 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 155994 chunks in file | running totals — ingested=0 skipped=3772010 errors=0
+22:47:01.292 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [14/28] Processing Mishnah_he.jsonl  (603 MB)
+22:47:27.717 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 502440 chunks in file | running totals — ingested=0 skipped=4274450 errors=0
+22:47:27.717 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [15/28] Processing Musar_en.jsonl  (25 MB)
+22:47:28.416 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 23424 chunks in file | running totals — ingested=0 skipped=4297874 errors=0
+22:47:28.417 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [16/28] Processing Musar_he.jsonl  (105 MB)
+22:47:30.714 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 74452 chunks in file | running totals — ingested=0 skipped=4372326 errors=0
+22:47:30.714 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [17/28] Processing Reference_en.jsonl  (7 MB)
+22:47:30.909 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 7510 chunks in file | running totals — ingested=0 skipped=4379836 errors=0
+22:47:30.910 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [18/28] Processing Reference_he.jsonl  (65 MB)
+22:47:32.762 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 79464 chunks in file | running totals — ingested=0 skipped=4459300 errors=0
+22:47:32.763 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [19/28] Processing Responsa_en.jsonl  (9 MB)
+22:47:33.017 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 8160 chunks in file | running totals — ingested=0 skipped=4467460 errors=0
+22:47:33.017 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [20/28] Processing Responsa_he.jsonl  (598 MB)
+22:47:45.577 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 349928 chunks in file | running totals — ingested=0 skipped=4817388 errors=0
+22:47:45.578 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [21/28] Processing Second_Temple_en.jsonl  (35 MB)
+22:47:46.530 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 38110 chunks in file | running totals — ingested=0 skipped=4855498 errors=0
+22:47:46.530 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [22/28] Processing Second_Temple_he.jsonl  (17 MB)
+22:47:46.999 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 20766 chunks in file | running totals — ingested=0 skipped=4876264 errors=0
+22:47:47.000 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [23/28] Processing Talmud_en.jsonl  (299 MB)
+22:47:52.915 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript -   Done: 114320 chunks in file | running totals — ingested=0 skipped=4990584 errors=0
+22:47:52.915 [org.freememory.scripts.EmbedIngestScript.main()] INFO  o.f.scripts.EmbedIngestScript - [24/28] Processing Talmud_he.jsonl  (1632 MB)
+22:47:54.013 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 1/10), sleeping 2076ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 965405, Requested 60873. Please try again in 1.576s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:48:02.210 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 1/10), sleeping 4858ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 1000000, Requested 72649. Please try again in 4.358s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:48:07.696 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 2/10), sleeping 1993ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 952245, Requested 72649. Please try again in 1.493s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:48:10.125 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 3/10), sleeping 3733ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 981240, Requested 72649. Please try again in 3.233s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:48:15.055 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 1/10), sleeping 2938ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 968219, Requested 72417. Please try again in 2.438s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:48:19.360 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 1/10), sleeping 4933ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 1000000, Requested 73887. Please try again in 4.433s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:48:24.444 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 2/10), sleeping 2261ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 955465, Requested 73887. Please try again in 1.761s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:48:27.910 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 1/10), sleeping 2986ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 971523, Requested 69923. Please try again in 2.486s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:48:32.873 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 1/10), sleeping 2369ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 958830, Requested 72333. Please try again in 1.869s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:48:37.584 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 1/10), sleeping 4832ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 1000000, Requested 72211. Please try again in 4.332s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:48:42.562 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 2/10), sleeping 5000ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 938277, Requested 72211. Please try again in 629ms. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:48:47.713 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 3/10), sleeping 4741ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 998473, Requested 72211. Please try again in 4.241s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:48:54.526 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 4/10), sleeping 4154ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 988699, Requested 72211. Please try again in 3.654s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:48:58.827 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 5/10), sleeping 2293ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 957686, Requested 72211. Please try again in 1.793s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:49:02.240 [grpc-default-executor-3] ERROR io.qdrant.client.QdrantClient - Retrieve operation failed
+io.grpc.StatusRuntimeException: INTERNAL: Encountered end-of-stream mid-frame
+	at io.grpc.Status.asRuntimeException(Status.java:532)
+	at io.grpc.stub.ClientCalls$UnaryStreamToFuture.onClose(ClientCalls.java:638)
+	at io.grpc.internal.ClientCallImpl.closeObserver(ClientCallImpl.java:565)
+	at io.grpc.internal.ClientCallImpl.access$100(ClientCallImpl.java:72)
+	at io.grpc.internal.ClientCallImpl$ClientStreamListenerImpl$1StreamClosed.runInternal(ClientCallImpl.java:733)
+	at io.grpc.internal.ClientCallImpl$ClientStreamListenerImpl$1StreamClosed.runInContext(ClientCallImpl.java:714)
+	at io.grpc.internal.ContextRunnable.run(ContextRunnable.java:37)
+	at io.grpc.internal.SerializingExecutor.run(SerializingExecutor.java:133)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+22:49:02.241 [org.freememory.scripts.EmbedIngestScript.main()] ERROR o.f.pipeline.embed.ChunkIngestor - Batch ingest failed (100 chunks starting at 'Shita Mekubetzet on Bava Metzia 71a (part 5)'): io.grpc.StatusRuntimeException: INTERNAL: Encountered end-of-stream mid-frame
+22:49:02.356 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 1/10), sleeping 5000ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 1000000, Requested 2370. Please try again in 142ms. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:49:08.785 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 1/10), sleeping 5000ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 936877, Requested 71443. Please try again in 499ms. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:49:15.186 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 1/10), sleeping 3213ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 973094, Requested 72137. Please try again in 2.713s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:49:20.620 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 1/10), sleeping 2138ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 956157, Requested 71151. Please try again in 1.638s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:49:24.085 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 1/10), sleeping 4663ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 1000000, Requested 69393. Please try again in 4.163s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:49:29.124 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 2/10), sleeping 2034ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 956186, Requested 69393. Please try again in 1.534s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:49:32.389 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 1/10), sleeping 4466ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 1000000, Requested 66109. Please try again in 3.966s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:49:37.025 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 2/10), sleeping 2272ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 963439, Requested 66109. Please try again in 1.772s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:49:41.493 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 1/10), sleeping 4575ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 1000000, Requested 67921. Please try again in 4.075s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:49:46.225 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 2/10), sleeping 5000ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 935488, Requested 67921. Please try again in 204ms. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:49:52.406 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 1/10), sleeping 2202ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 966338, Requested 62032. Please try again in 1.702s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:49:56.725 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 1/10), sleeping 1893ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 957345, Requested 65879. Please try again in 1.393s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:49:59.827 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Rate limited (attempt 1/10), sleeping 2794ms — Rate limit reached for text-embedding-3-small in organization org-580w02wn3tGARfOeiZCU07o0 on tokens per min (TPM): Limit 1000000, Used 970546, Requested 67689. Please try again in 2.294s. Visit https://platform.openai.com/account/rate-limits to learn more.
+22:50:03.676 [grpc-default-executor-1] ERROR io.qdrant.client.QdrantClient - Upsert operation failed
+io.grpc.StatusRuntimeException: INTERNAL: Encountered end-of-stream mid-frame
+	at io.grpc.Status.asRuntimeException(Status.java:532)
+	at io.grpc.stub.ClientCalls$UnaryStreamToFuture.onClose(ClientCalls.java:638)
+	at io.grpc.internal.ClientCallImpl.closeObserver(ClientCallImpl.java:565)
+	at io.grpc.internal.ClientCallImpl.access$100(ClientCallImpl.java:72)
+	at io.grpc.internal.ClientCallImpl$ClientStreamListenerImpl$1StreamClosed.runInternal(ClientCallImpl.java:733)
+	at io.grpc.internal.ClientCallImpl$ClientStreamListenerImpl$1StreamClosed.runInContext(ClientCallImpl.java:714)
+	at io.grpc.internal.ContextRunnable.run(ContextRunnable.java:37)
+	at io.grpc.internal.SerializingExecutor.run(SerializingExecutor.java:133)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+22:50:03.676 [org.freememory.scripts.EmbedIngestScript.main()] WARN  o.f.pipeline.embed.ChunkIngestor - Qdrant upsert failed (attempt 1/4), retrying in 2 s: io.grpc.StatusRuntimeException: INTERNAL: Encountered end-of-stream mid-frame

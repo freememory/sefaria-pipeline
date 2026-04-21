@@ -1,0 +1,250 @@
+package org.freememory.scripts;
+
+import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
+import io.qdrant.client.QdrantClient;
+import io.qdrant.client.QdrantGrpcClient;
+import org.freememory.config.ConfigLoader;
+import org.freememory.config.PipelineConfig;
+import org.freememory.config.PipelineConfig.AgentConfig;
+import org.freememory.pipeline.agent.AgentNode;
+import org.freememory.pipeline.agent.AgentTree;
+import org.freememory.pipeline.agent.ConversationContext;
+import org.freememory.pipeline.agent.http.AgentHttpServer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Arrays;
+import java.util.Scanner;
+
+/**
+ * Phase 4 entrypoint: runs the Sefaria agent either as an HTTP server (default)
+ * or as an interactive CLI REPL (pass {@code --mode cli}).
+ *
+ * === HTTP mode (default) ===
+ *
+ *   Starts a Vert.x HTTP server on the configured port (default 8080).
+ *   Open http://localhost:8080 in a browser to use the chat UI.
+ *
+ *   Config options (pipeline-agent.json → agent section):
+ *     httpPort   — TCP port to listen on (default: 8080)
+ *     debugMode  — if true, include tool-call traces in API responses (default: false)
+ *
+ * === CLI mode ===
+ *
+ *   Pass {@code --mode cli} to use the original stdin/stdout REPL instead.
+ *   Useful for quick debugging without a browser.
+ *
+ *   CLI commands:
+ *     /exit    — quit
+ *     /new     — start a new conversation (clears chat memory)
+ *     /path    — show the routing path taken for the last message
+ *     /help    — show available commands
+ *
+ * === Prerequisites ===
+ *
+ *   - Qdrant running locally with the sefaria_texts collection populated
+ *       docker run -d -p 6333:6333 -p 6334:6334 \
+ *           -v /path/to/qdrant_storage:/qdrant/storage qdrant/qdrant
+ *
+ *   - API keys set in config file or environment:
+ *       ANTHROPIC_API_KEY   (for Claude — default agent model)
+ *       OPENAI_API_KEY      (for embeddings — text-embedding-3-small)
+ *
+ * === Usage ===
+ *
+ *   java -jar sefaria-agent.jar
+ *   java -jar sefaria-agent.jar --config config/pipeline-agent.json
+ *   java -jar sefaria-agent.jar --mode cli
+ *   java -jar sefaria-agent.jar --config config/pipeline-agent.json --mode cli
+ */
+public class RunAgentScript
+{
+    private static final Logger log = LoggerFactory.getLogger(RunAgentScript.class);
+
+    public static void main(String[] args) throws Exception
+    {
+        boolean cliMode = Arrays.asList(args).contains("--mode") &&
+                          Arrays.asList(args).indexOf("--mode") < args.length - 1 &&
+                          "cli".equalsIgnoreCase(args[Arrays.asList(args).indexOf("--mode") + 1]);
+
+        PipelineConfig config = ConfigLoader.load(args);
+        AgentConfig ac = config.getAgent();
+
+        log.info("=== Sefaria Agent ===");
+        log.info("Default model:  {}/{}", ac.getDefaultModel().getProvider(),
+                                          ac.getDefaultModel().getModelId());
+        log.info("Router model:   {}/{}", ac.getRouterModel().getProvider(),
+                                          ac.getRouterModel().getModelId());
+        log.info("Qdrant:         {}:{}", ac.getQdrantHost(), ac.getQdrantPort());
+        log.info("Collection:     {}", ac.getCollectionName());
+        log.info("Mode:           {}", cliMode ? "CLI" : "HTTP (port " + ac.getHttpPort() + ")");
+        log.info("Debug mode:     {}", ac.isDebugMode());
+
+        // Resolve OpenAI key for the embedding model
+        String openAiKey = ac.resolveApiKey("openai");
+        if (openAiKey == null || openAiKey.isBlank())
+        {
+            log.error("No OpenAI API key found. The embedding model requires OpenAI.");
+            log.error("Set providers.openai.apiKey in your config or OPENAI_API_KEY env var.");
+            System.exit(1);
+        }
+
+        // Connect to Qdrant
+        QdrantClient qdrant = new QdrantClient(
+                QdrantGrpcClient.newBuilder(ac.getQdrantHost(), ac.getQdrantPort(), false)
+                        .build()
+        );
+
+        try
+        {
+            // Build the embedding model (must match the model used during ingest)
+            EmbeddingModel embeddingModel = OpenAiEmbeddingModel.builder()
+                    .apiKey(openAiKey)
+                    .modelName(ac.getEmbeddingModel())
+                    .build();
+
+            // Build the agent tree from config
+            AgentTree tree = new AgentTree(ac, qdrant, embeddingModel);
+            AgentNode root = tree.build();
+
+            if (cliMode)
+            {
+                System.out.println();
+                System.out.println("╔══════════════════════════════════════════════╗");
+                System.out.println("║      Sefaria Jewish Learning Agent (CLI)     ║");
+                System.out.println("╚══════════════════════════════════════════════╝");
+                System.out.println("  Type your question and press Enter.");
+                System.out.println("  Commands: /exit  /new  /path  /help");
+                System.out.println();
+
+                runLoop(root, ac.getChatMemorySize());
+            }
+            else
+            {
+                // HTTP mode — start server and block the main thread so the JVM
+                // keeps running while Vert.x handles requests on its event loop.
+                AgentHttpServer server = new AgentHttpServer(
+                        root, ac.getChatMemorySize(), ac.isDebugMode());
+                server.start(ac.getHttpPort());
+
+                // Park the main thread indefinitely; Vert.x runs on daemon threads
+                // and the JVM would exit immediately without this.
+                Thread.currentThread().join();
+            }
+        }
+        finally
+        {
+            qdrant.close();
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // REPL
+    // ------------------------------------------------------------------
+
+    private static void runLoop(AgentNode root, int memorySize) throws Exception
+    {
+        Scanner scanner = new Scanner(System.in);
+        // Use a single-element array so the reference can be replaced when
+        // the user issues /new without needing a separate mutable wrapper class.
+        ConversationContext[] ctxRef = { new ConversationContext(memorySize) };
+
+        while (true)
+        {
+            System.out.print("You: ");
+            System.out.flush();
+
+            if (!scanner.hasNextLine())
+            {
+                break; // EOF (e.g. piped input)
+            }
+
+            String input = scanner.nextLine().strip();
+            if (input.isBlank())
+            {
+                continue;
+            }
+
+            // CLI commands
+            if (input.startsWith("/"))
+            {
+                if (handleCommand(input, ctxRef, memorySize))
+                {
+                    break; // /exit
+                }
+                continue;
+            }
+
+            // Regular message → route through the agent tree
+            try
+            {
+                ConversationContext ctx = ctxRef[0];
+                ctx.startTurn();
+                String response = root.handle(ctx, input);
+                System.out.println();
+                System.out.println("Agent [" + ctx.getLastRoutingPath() + "]:");
+                System.out.println(response);
+                System.out.println();
+            }
+            catch (Exception e)
+            {
+                log.error("Error processing message", e);
+                System.out.println("Error: " + e.getMessage());
+                System.out.println();
+            }
+        }
+
+        System.out.println("Goodbye.");
+    }
+
+    /**
+     * Handle a CLI slash command.
+     *
+     * @param ctxRef single-element array holding the current ConversationContext;
+     *               replaced in-place when the user issues /new
+     * @return true if the loop should exit (/exit)
+     */
+    private static boolean handleCommand(String input,
+                                         ConversationContext[] ctxRef,
+                                         int memorySize)
+    {
+        String cmd = input.toLowerCase();
+
+        switch (cmd)
+        {
+            case "/exit", "/quit" ->
+            {
+                return true;
+            }
+            case "/new" ->
+            {
+                ctxRef[0] = new ConversationContext(memorySize);
+                System.out.println("[New conversation started — all chat memory cleared]");
+                System.out.println();
+            }
+            case "/path" ->
+            {
+                System.out.println("Last routing path: " + ctxRef[0].getLastRoutingPath());
+                System.out.println();
+            }
+            case "/help" ->
+            {
+                System.out.println("Commands:");
+                System.out.println("  /exit   — quit the agent");
+                System.out.println("  /new    — start a new conversation (clears all memory)");
+                System.out.println("  /path   — show how the last message was routed");
+                System.out.println("  /help   — show this help");
+                System.out.println();
+            }
+            default ->
+            {
+                System.out.println("Unknown command: " + input
+                        + "  (try /help for available commands)");
+                System.out.println();
+            }
+        }
+
+        return false;
+    }
+}

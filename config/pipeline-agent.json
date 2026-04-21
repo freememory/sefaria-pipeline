@@ -1,0 +1,132 @@
+{
+  "_comment": "Phase 4 — Agent config. Copy to ../.config/pipeline-agent.json and fill in your API keys, or set environment variables instead.",
+
+  "embed": {
+    "inputDir":       "data/processed",
+    "embeddingModel": "text-embedding-3-small",
+    "batchSize":      100,
+    "qdrantHost":     "localhost",
+    "qdrantPort":     6334,
+    "collectionName": "sefaria_texts",
+    "skipExisting":   true
+  },
+
+  "agent": {
+
+    "_comment_keys": "Set real keys in ../.config/pipeline-agent.json (gitignored), or export OPENAI_API_KEY / ANTHROPIC_API_KEY.",
+    "providers": {
+      "openai":    { "apiKey": "sk-proj-YOUR_OPENAI_KEY_HERE" },
+      "anthropic": { "apiKey": "sk-ant-YOUR_ANTHROPIC_KEY_HERE" }
+    },
+
+    "_comment_models": "defaultModel is used for leaf agents; routerModel for routing decisions.",
+    "defaultModel": { "provider": "anthropic", "modelId": "claude-sonnet-4-6" },
+    "routerModel":  { "provider": "anthropic", "modelId": "claude-haiku-4-5" },
+
+    "embeddingModel": "text-embedding-3-small",
+
+    "qdrantHost":     "localhost",
+    "qdrantPort":     6334,
+    "collectionName": "sefaria_texts",
+
+    "chatMemorySize": 10,
+
+    "_comment_location": "Default city/timezone for DateTimeTools and zmanim. Change to your city.",
+    "defaultLocation": {
+      "city":     "Jerusalem",
+      "timezone": "Asia/Jerusalem"
+    },
+
+    "_comment_global_tools": "DATE_TIME is global — every agent needs to know the current date before calling calendar or zmanim tools.",
+    "globalTools": ["DATE_TIME"],
+
+    "_comment_global_mcp": "MCP servers listed here are connected to every leaf agent. Leave empty if none.",
+    "globalMcpServers": [],
+
+    "_comment_tree": "The agent tree. Add/remove nodes in JSON — no code changes needed.",
+    "tree": {
+      "name":        "Sefaria Agent",
+      "description": "Routes Jewish learning questions to the right specialist",
+      "type":        "router",
+      "children": [
+
+        {
+          "name":        "Halakha",
+          "description": "Questions about Jewish law and halachic practice",
+          "type":        "router",
+          "children": [
+            {
+              "name":        "Shabbat",
+              "description": "Laws of Shabbat: melachot, candle lighting, eruv, muktzeh, electric devices",
+              "type":        "leaf",
+              "promptFile":  "prompts/halakha_shabbat.txt",
+              "tools":       ["ZMANIM", "HEBREW_CALENDAR"],
+              "retrieval": {
+                "categories":  ["Halakhah", "Talmud", "Mishnah"],
+                "language":    null,
+                "topK":        6,
+                "primaryOnly": false
+              }
+            },
+            {
+              "name":        "Kashrut",
+              "description": "Laws of kosher food, meat and milk, slaughter, wine",
+              "type":        "leaf",
+              "promptFile":  "prompts/halakha_kashrut.txt",
+              "tools":       [],
+              "retrieval": {
+                "categories":  ["Halakhah", "Talmud", "Mishnah"],
+                "language":    null,
+                "topK":        6,
+                "primaryOnly": false
+              }
+            },
+            {
+              "name":        "General Halakha",
+              "description": "All other Jewish law questions: prayer, lifecycle, family purity, brachot, mourning",
+              "type":        "leaf",
+              "promptFile":  "prompts/halakha_general.txt",
+              "tools":       ["HEBREW_CALENDAR"],
+              "retrieval": {
+                "categories":  ["Halakhah", "Talmud", "Mishnah"],
+                "language":    null,
+                "topK":        6,
+                "primaryOnly": false
+              }
+            }
+          ]
+        },
+
+        {
+          "name":        "Dvar Torah",
+          "description": "Weekly parasha, divrei Torah, sermon prep, Midrash and commentary on the text",
+          "type":        "leaf",
+          "promptFile":  "prompts/dvar_torah.txt",
+          "tools":       ["HEBREW_CALENDAR", "SEFARIA_LOOKUP"],
+          "_comment_retrieval": "topK=0 disables auto-RAG. Dvar Torah queries need to resolve the parasha via HEBREW_CALENDAR first, then do targeted lookups via SEFARIA_LOOKUP. Auto-RAG on the raw query produces noise before those tool calls happen.",
+          "retrieval": {
+            "categories":  [],
+            "language":    null,
+            "topK":        0,
+            "primaryOnly": false
+          }
+        },
+
+        {
+          "name":        "General Jewish Learning",
+          "description": "General questions about Jewish texts, history, theology, and thought",
+          "type":        "leaf",
+          "promptFile":  "prompts/general.txt",
+          "tools":       ["HEBREW_CALENDAR", "SEFARIA_LOOKUP"],
+          "retrieval": {
+            "categories":  [],
+            "language":    null,
+            "topK":        6,
+            "primaryOnly": false
+          }
+        }
+
+      ]
+    }
+  }
+}

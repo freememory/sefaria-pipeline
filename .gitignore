@@ -1,0 +1,14 @@
+# Local config containing real API keys — never commit
+.config/
+
+# Downloaded data and pipeline artifacts
+data/
+
+# Build output
+target/
+*/target/
+
+# IDE
+.idea/
+*.iml
+.DS_Store

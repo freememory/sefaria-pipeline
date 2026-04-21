@@ -1,0 +1,45 @@
+{
+  "_comment": "Full corpus download (all priority tiers including commentaries). Expect several hours and ~6GB. Copy to ../.config/pipeline-full.json and fill in your API key.",
+
+  "download": {
+    "outputDir":      "data/raw",
+    "schemasDir":     "data/schemas",
+    "linksDir":       "data/links",
+    "linksIndexDir":  "data/links_index",
+    "concurrency":    20,
+    "priorities":     [],
+    "skipLinks":      false,
+    "skipSchemas":    false,
+    "buildIndex":     true,
+    "forceIndex":     false
+  },
+
+  "process": {
+    "inputDir":   "data/raw",
+    "schemasDir": "data/schemas",
+    "linksDb":    "data/links_index/links.db",
+    "outputDir":  "data/processed"
+  },
+
+  "embed": {
+    "openAiApiKey":    "sk-proj-YOUR_OPENAI_KEY_HERE",
+    "inputDir":        "data/processed",
+    "embeddingModel":  "text-embedding-3-small",
+    "batchSize":       100,
+    "qdrantHost":      "localhost",
+    "qdrantPort":      6334,
+    "collectionName":  "sefaria_texts",
+    "skipExisting":    true
+  },
+
+  "agent": {
+    "model":           "claude-sonnet-4-6",
+    "qdrantHost":      "localhost",
+    "qdrantPort":      6334,
+    "collectionName":  "sefaria_texts",
+    "retrievalTopK":   20,
+    "rerankTopK":      5,
+    "linksDb":         "data/links_index/links.db",
+    "chatMemorySize":  20
+  }
+}

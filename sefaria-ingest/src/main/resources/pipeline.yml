@@ -1,0 +1,69 @@
+# Sefaria Pipeline Configuration
+
+download:
+  concurrency: 20
+  output_dir: data/raw
+  schemas_dir: data/schemas
+  links_dir: data/links
+  links_index_dir: data/links_index
+  processed_dir: data/processed
+  # Always use "merged" versionTitle only
+  version_filter: merged
+  # Languages to download (both is required for bilingual operation)
+  languages:
+    - English
+    - Hebrew
+  # Priority categories — P0 is downloaded first
+  priority:
+    P0:
+      - Tanakh
+      - Mishnah
+      - Talmud
+      - Halakhah
+    P1:
+      - Responsa
+      - Tosefta
+      - Midrash
+      - Liturgy
+    P2:
+      - Jewish Thought
+      - Kabbalah
+      - Chasidut
+      - Musar
+      - Second Temple
+    P3:
+      # Commentaries — large, download last
+      - Tanakh/Rishonim on Tanakh
+      - Talmud/Bavli/Rishonim on Talmud
+      - Mishnah/Rishonim on Mishnah
+
+chunking:
+  # Hard token cap per chunk (approximate using word count * 1.3)
+  max_tokens: 450
+  # Torah-specific: use aliyot from alt_structs
+  torah_books:
+    - Genesis
+    - Exodus
+    - Leviticus
+    - Numbers
+    - Deuteronomy
+  # Talmud amud overlap (lines)
+  talmud_overlap_lines: 2
+  # Prose chunk overlap (tokens approx)
+  prose_overlap_tokens: 50
+
+embedding:
+  model: text-embedding-3-small
+  dimensions: 1536
+  batch_size: 100
+
+qdrant:
+  host: localhost
+  port: 6334
+  collection: sefaria_texts
+
+agent:
+  model: claude-sonnet-4-6
+  max_context_chunks: 10
+  retrieval_top_k: 20
+  rerank_top_k: 5

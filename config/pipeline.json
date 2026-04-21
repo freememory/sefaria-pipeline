@@ -1,0 +1,45 @@
+{
+  "_comment": "Phase 1 + 2 config for the P0 priority texts only. Recommended starting point.",
+
+  "download": {
+    "outputDir":      "data/raw",
+    "schemasDir":     "data/schemas",
+    "linksDir":       "data/links",
+    "linksIndexDir":  "data/links_index",
+    "concurrency":    20,
+    "priorities":     ["P0"],
+    "skipLinks":      false,
+    "skipSchemas":    false,
+    "buildIndex":     true,
+    "forceIndex":     false
+  },
+
+  "process": {
+    "inputDir":   "data/raw",
+    "schemasDir": "data/schemas",
+    "linksDb":    "data/links_index/links.db",
+    "outputDir":  "data/processed"
+  },
+
+  "embed": {
+    "openAiApiKey":    "sk-YOUR-KEY-HERE",
+    "inputDir":        "data/processed",
+    "embeddingModel":  "text-embedding-3-small",
+    "batchSize":       100,
+    "qdrantHost":      "localhost",
+    "qdrantPort":      6334,
+    "collectionName":  "sefaria_texts",
+    "skipExisting":    true
+  },
+
+  "agent": {
+    "model":           "claude-sonnet-4-6",
+    "qdrantHost":      "localhost",
+    "qdrantPort":      6334,
+    "collectionName":  "sefaria_texts",
+    "retrievalTopK":   20,
+    "rerankTopK":      5,
+    "linksDb":         "data/links_index/links.db",
+    "chatMemorySize":  20
+  }
+}

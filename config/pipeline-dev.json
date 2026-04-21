@@ -1,0 +1,30 @@
+{
+  "_comment": "Minimal config for development/testing. Downloads P0 only, skips links (faster).",
+
+  "download": {
+    "priorities":   ["P0"],
+    "concurrency":  5,
+    "skipLinks":    true,
+    "skipSchemas":  false,
+    "buildIndex":   false
+  },
+
+  "process": {
+    "inputDir":   "data/raw",
+    "schemasDir": "data/schemas",
+    "linksDb":    "data/links_index/links.db",
+    "outputDir":  "data/processed"
+  },
+
+  "embed": {
+    "openAiApiKey":   "sk-YOUR-KEY-HERE",
+    "batchSize":      20,
+    "skipExisting":   true
+  },
+
+  "agent": {
+    "retrievalTopK":  10,
+    "rerankTopK":     3,
+    "chatMemorySize": 10
+  }
+}
