@@ -61,10 +61,11 @@
               "type":        "leaf",
               "promptFile":  "prompts/halakha_shabbat.txt",
               "tools":       ["ZMANIM", "HEBREW_CALENDAR"],
+              "_comment_retrieval": "topK=0: auto-RAG disabled. All retrieval is done by the agent via SEFARIA_SEARCH tool calls, which gives the LLM control over what to fetch and how many times to search.",
               "retrieval": {
-                "categories":  ["Halakhah", "Talmud", "Mishnah"],
+                "categories":  [],
                 "language":    null,
-                "topK":        6,
+                "topK":        0,
                 "primaryOnly": false
               }
             },
@@ -74,10 +75,11 @@
               "type":        "leaf",
               "promptFile":  "prompts/halakha_kashrut.txt",
               "tools":       [],
+              "_comment_retrieval": "topK=0: auto-RAG disabled. All retrieval is done by the agent via SEFARIA_SEARCH tool calls.",
               "retrieval": {
-                "categories":  ["Halakhah", "Talmud", "Mishnah"],
+                "categories":  [],
                 "language":    null,
-                "topK":        6,
+                "topK":        0,
                 "primaryOnly": false
               }
             },
@@ -87,10 +89,11 @@
               "type":        "leaf",
               "promptFile":  "prompts/halakha_general.txt",
               "tools":       ["HEBREW_CALENDAR"],
+              "_comment_retrieval": "topK=0: auto-RAG disabled. All retrieval is done by the agent via SEFARIA_SEARCH tool calls.",
               "retrieval": {
-                "categories":  ["Halakhah", "Talmud", "Mishnah"],
+                "categories":  [],
                 "language":    null,
-                "topK":        6,
+                "topK":        0,
                 "primaryOnly": false
               }
             }
@@ -118,10 +121,11 @@
           "type":        "leaf",
           "promptFile":  "prompts/general.txt",
           "tools":       ["HEBREW_CALENDAR"],
+          "_comment_retrieval": "topK=0: auto-RAG disabled. All retrieval is done by the agent via SEFARIA_SEARCH tool calls.",
           "retrieval": {
             "categories":  [],
             "language":    null,
-            "topK":        6,
+            "topK":        0,
             "primaryOnly": false
           }
         }
