@@ -117,10 +117,14 @@ public class SefariaRetriever implements ContentRetriever
         Embedding queryEmbedding = embeddingModel.embed(queryText).content();
         float[] vector = queryEmbedding.vector();
 
-        // 2. Build search request
+        List<Float> vectorList = toFloatList(vector);
+
+        // 2. Build primary search request (unfiltered, or with category/primaryOnly
+        //    filters but no language restriction — gets the best semantic matches,
+        //    which for English queries will mostly be English chunks).
         SearchPoints.Builder search = SearchPoints.newBuilder()
                 .setCollectionName(collectionName)
-                .addAllVector(toFloatList(vector))
+                .addAllVector(vectorList)
                 .setLimit(config.getTopK())
                 .setWithPayload(WithPayloadSelector.newBuilder().setEnable(true).build());
 
@@ -130,7 +134,7 @@ public class SefariaRetriever implements ContentRetriever
             search.setFilter(filter);
         }
 
-        // 3. Execute
+        // 3. Execute primary search
         List<ScoredPoint> results;
         try
         {
@@ -145,6 +149,17 @@ public class SefariaRetriever implements ContentRetriever
         log.debug("Qdrant returned {} results for query \"{}\"",
                 results.size(), queryText.length() > 60
                         ? queryText.substring(0, 60) + "…" : queryText);
+
+        // 3b. Bilingual second pass: when no language filter is configured, the
+        //     primary search is English-biased because OpenAI's embedding model
+        //     assigns higher cosine similarity to language-matching chunks.  Run a
+        //     separate Hebrew-only search with half the topK to ensure Hebrew texts
+        //     are always represented, then merge — deduplicating by ref so the same
+        //     passage doesn't appear twice.
+        if (config.getLanguage() == null || config.getLanguage().isBlank())
+        {
+            results = mergeWithHebrewSearch(results, vectorList);
+        }
 
         // 4. Two-hop link expansion: collect refs from top-N primary results,
         //    look them up in links.db, then fetch the linked chunks from Qdrant.
@@ -227,6 +242,82 @@ public class SefariaRetriever implements ContentRetriever
         }
 
         return contents;
+    }
+
+    // ------------------------------------------------------------------
+    // Bilingual retrieval
+    // ------------------------------------------------------------------
+
+    /**
+     * Runs a secondary Qdrant search restricted to {@code language=he} and
+     * merges the results with the primary list.
+     *
+     * Deduplication is by {@code ref}: if a Hebrew chunk shares a ref with an
+     * already-present English chunk it is still included (they are different
+     * chunks with different text), but if the exact same chunk appears twice
+     * (same ref AND same language) it is deduplicated.
+     *
+     * The merged list is sorted by score descending so the LLM sees the most
+     * relevant chunks first regardless of language.
+     */
+    private List<ScoredPoint> mergeWithHebrewSearch(List<ScoredPoint> primary,
+                                                     List<Float> vectorList)
+    {
+        int heTopK = Math.max(1, config.getTopK() / 2);
+
+        // Build a Hebrew-only filter, respecting any other active filters
+        // (category, primaryOnly) that were applied to the primary search.
+        Filter heFilter = buildFilterWithLanguage("he");
+
+        SearchPoints heSearch = SearchPoints.newBuilder()
+                .setCollectionName(collectionName)
+                .addAllVector(vectorList)
+                .setLimit(heTopK)
+                .setFilter(heFilter)
+                .setWithPayload(WithPayloadSelector.newBuilder().setEnable(true).build())
+                .build();
+
+        List<ScoredPoint> heResults;
+        try
+        {
+            heResults = qdrant.searchAsync(heSearch).get();
+        }
+        catch (Exception e)
+        {
+            log.warn("Hebrew secondary search failed: {}", e.getMessage());
+            return primary;   // fall back to primary-only
+        }
+
+        if (heResults.isEmpty())
+        {
+            return primary;
+        }
+
+        // Deduplicate: track ref+language pairs already in the primary list
+        Set<String> seen = new LinkedHashSet<>();
+        for (ScoredPoint p : primary)
+        {
+            String ref  = str(p.getPayload(), "ref");
+            String lang = str(p.getPayload(), "language");
+            if (ref != null) seen.add(ref + "|" + lang);
+        }
+
+        List<ScoredPoint> merged = new ArrayList<>(primary);
+        for (ScoredPoint p : heResults)
+        {
+            String ref  = str(p.getPayload(), "ref");
+            String lang = str(p.getPayload(), "language");
+            String key  = ref + "|" + lang;
+            if (!seen.contains(key))
+            {
+                seen.add(key);
+                merged.add(p);
+            }
+        }
+
+        // Sort by score descending so context is ordered by relevance
+        merged.sort((a, b) -> Float.compare(b.getScore(), a.getScore()));
+        return merged;
     }
 
     // ------------------------------------------------------------------
@@ -371,6 +462,49 @@ public class SefariaRetriever implements ContentRetriever
     // ------------------------------------------------------------------
     // Filter construction
     // ------------------------------------------------------------------
+
+    /**
+     * Variant of {@link #buildFilter()} that forces a specific language,
+     * overriding (or adding to) the config language setting.
+     * Always returns a non-null filter since at minimum a language clause is added.
+     */
+    private Filter buildFilterWithLanguage(String language)
+    {
+        List<Condition> mustClauses = new ArrayList<>();
+        mustClauses.add(keywordMatch("language", language));
+
+        if (config.isPrimaryOnly())
+        {
+            mustClauses.add(boolMatch("is_primary", true));
+        }
+
+        List<String> cats = config.getCategories();
+        if (cats != null && !cats.isEmpty())
+        {
+            if (cats.size() == 1)
+            {
+                mustClauses.add(keywordMatch("category", cats.get(0)));
+            }
+            else
+            {
+                List<Condition> shouldClauses = new ArrayList<>();
+                for (String cat : cats)
+                {
+                    shouldClauses.add(keywordMatch("category", cat));
+                }
+                Filter orFilter = Filter.newBuilder()
+                        .addAllShould(shouldClauses)
+                        .build();
+                mustClauses.add(Condition.newBuilder()
+                        .setFilter(orFilter)
+                        .build());
+            }
+        }
+
+        return Filter.newBuilder()
+                .addAllMust(mustClauses)
+                .build();
+    }
 
     /**
      * Build a Qdrant {@link Filter} from the agent's {@link RetrievalConfig}.
