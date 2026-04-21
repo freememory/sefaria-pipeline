@@ -81,6 +81,12 @@
             <artifactId>jackson-databind</artifactId>
         </dependency>
 
+        <!-- SQLite — links cross-reference index (two-hop link expansion in SefariaRetriever) -->
+        <dependency>
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+        </dependency>
+
         <!-- Logging -->
         <dependency>
             <groupId>org.slf4j</groupId>

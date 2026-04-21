@@ -2,8 +2,12 @@ package org.freememory.scripts;
 
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
 import io.qdrant.client.QdrantClient;
 import io.qdrant.client.QdrantGrpcClient;
+
+import java.util.concurrent.TimeUnit;
 import org.freememory.config.ConfigLoader;
 import org.freememory.config.PipelineConfig;
 import org.freememory.config.PipelineConfig.AgentConfig;
@@ -90,10 +94,20 @@ public class RunAgentScript
             System.exit(1);
         }
 
-        // Connect to Qdrant
+        // Connect to Qdrant — use a custom ManagedChannel with keepalive so the
+        // gRPC connection is not silently dropped after a period of inactivity.
+        // Without this, Qdrant closes the TCP connection and subsequent calls
+        // fail with UNAVAILABLE: "Network closed for unknown reason".
+        ManagedChannel qdrantChannel = ManagedChannelBuilder
+                .forAddress(ac.getQdrantHost(), ac.getQdrantPort())
+                .usePlaintext()
+                .keepAliveTime(30, TimeUnit.SECONDS)
+                .keepAliveTimeout(10, TimeUnit.SECONDS)
+                .keepAliveWithoutCalls(true)
+                .build();
+
         QdrantClient qdrant = new QdrantClient(
-                QdrantGrpcClient.newBuilder(ac.getQdrantHost(), ac.getQdrantPort(), false)
-                        .build()
+                QdrantGrpcClient.newBuilder(qdrantChannel).build()
         );
 
         try
