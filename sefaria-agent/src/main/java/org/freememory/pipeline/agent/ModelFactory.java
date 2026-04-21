@@ -91,10 +91,13 @@ public final class ModelFactory
             case "openai" ->
             {
                 requireKey(apiKey, "openai", "OPENAI_API_KEY");
+                // Use maxCompletionTokens (sends max_completion_tokens) rather than
+                // maxTokens (sends max_tokens).  The older max_tokens parameter is
+                // deprecated and rejected outright by reasoning models (o1, o3, o4-mini).
                 yield OpenAiChatModel.builder()
                         .apiKey(apiKey)
                         .modelName(modelId)
-                        .maxTokens(maxTokens)
+                        .maxCompletionTokens(maxTokens)
                         .timeout(REQUEST_TIMEOUT)
                         .listeners(listeners)
                         .build();
