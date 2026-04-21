@@ -299,12 +299,12 @@ public class PipelineConfig
 
         /**
          * Maximum tokens in the model's response.
-         * Defaults to 4096 — enough for long source-rich answers.
-         * Set to 8096 for very detailed multi-source responses.
+         * Defaults to 16384 — sufficient for detailed multi-source Halakhic analyses.
+         * Claude Sonnet supports up to 64K; GPT-4o supports up to 16K output tokens.
          * The router model ignores this (its responses are always short).
          */
         @JsonProperty("maxTokens")
-        private int maxTokens = 4096;
+        private int maxTokens = 16384;
 
         public String getProvider()  { return provider; }
         public String getModelId()   { return modelId; }

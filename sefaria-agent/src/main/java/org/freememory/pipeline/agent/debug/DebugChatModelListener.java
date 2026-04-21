@@ -10,6 +10,7 @@ import dev.langchain4j.model.chat.listener.ChatModelErrorContext;
 import dev.langchain4j.model.chat.listener.ChatModelListener;
 import dev.langchain4j.model.chat.listener.ChatModelRequestContext;
 import dev.langchain4j.model.chat.listener.ChatModelResponseContext;
+import dev.langchain4j.model.output.FinishReason;
 
 import java.util.List;
 
@@ -64,11 +65,22 @@ public class DebugChatModelListener implements ChatModelListener
         }
     }
 
-    /** Called just after each LLM response — captures tool call requests. */
+    /** Called just after each LLM response — captures tool call requests and truncation. */
     @Override
     public void onResponse(ChatModelResponseContext ctx)
     {
-        var ai = ctx.chatResponse().aiMessage();
+        var response = ctx.chatResponse();
+        var ai       = response.aiMessage();
+
+        // Detect hard token-limit cutoff.  finishReason=LENGTH means the model
+        // stopped because it ran out of output tokens, not because it naturally
+        // finished — the response is incomplete.
+        if (response.finishReason() == FinishReason.LENGTH)
+        {
+            DebugCollector.setTruncated();
+            DebugCollector.record("⚠️ Response truncated — hit max_tokens limit");
+        }
+
         if (ai.hasToolExecutionRequests())
         {
             for (ToolExecutionRequest req : ai.toolExecutionRequests())

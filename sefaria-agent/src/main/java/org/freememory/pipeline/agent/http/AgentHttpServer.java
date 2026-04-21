@@ -171,6 +171,15 @@ public class AgentHttpServer
                     {
                         convCtx.startTurn();
                         String answer = handleWithRetry(convCtx, message, sid);
+
+                        // If the LLM was cut off at the token limit, append a
+                        // visible notice so the user knows to ask for a continuation.
+                        if (DebugCollector.isTruncated())
+                        {
+                            answer += "\n\n---\n*Response was cut off at the output"
+                                    + " token limit. Reply **\"continue\"** to receive the rest.*";
+                        }
+
                         List<String> events = DebugCollector.collect();
                         promise.complete(new ChatResult(answer,
                                 convCtx.getLastRoutingPath(), events, sid));
