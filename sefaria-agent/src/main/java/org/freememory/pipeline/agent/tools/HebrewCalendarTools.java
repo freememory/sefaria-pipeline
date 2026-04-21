@@ -2,6 +2,8 @@ package org.freememory.pipeline.agent.tools;
 
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.net.URLEncoder;
@@ -32,6 +34,7 @@ import java.time.Duration;
 public class HebrewCalendarTools
 {
     private static final Duration TIMEOUT = Duration.ofSeconds(10);
+    private static final Logger log = LoggerFactory.getLogger(HebrewCalendarTools.class);
 
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(TIMEOUT)
@@ -51,6 +54,7 @@ public class HebrewCalendarTools
             @P("Gregorian month number 1–12.")
             int month)
     {
+        log.info("getCalendar({}, {})", year, month);
         String url = "https://www.hebcal.com/hebcal?v=1&cfg=json"
                 + "&maj=on&min=on&nx=on&s=on"
                 + "&year=" + year
@@ -64,6 +68,7 @@ public class HebrewCalendarTools
             @P("Date in YYYY-MM-DD format, or the word 'today'.")
             String date)
     {
+        log.info("getWeeklyParasha({})", date);
         LocalDate d = "today".equalsIgnoreCase(date.trim())
                 ? LocalDate.now()
                 : LocalDate.parse(date.trim());
@@ -81,6 +86,7 @@ public class HebrewCalendarTools
             @P("Date in YYYY-MM-DD format.")
             String gregorianDate)
     {
+        log.info("toHebrewDate({})", gregorianDate);
         LocalDate d = LocalDate.parse(gregorianDate.trim());
         String url = "https://www.hebcal.com/converter?cfg=json"
                 + "&gy=" + d.getYear()
@@ -102,6 +108,7 @@ public class HebrewCalendarTools
             @P("Day of the Hebrew month (1–30).")
             int hebrewDay)
     {
+        log.info("toGregorianDate({}, {}, {})", hebrewYear, hebrewMonth, hebrewDay);
         String url = "https://www.hebcal.com/converter?cfg=json"
                 + "&hy=" + hebrewYear
                 + "&hm=" + URLEncoder.encode(hebrewMonth, StandardCharsets.UTF_8)
@@ -116,6 +123,7 @@ public class HebrewCalendarTools
             @P("Four-digit Gregorian year.")
             int year)
     {
+        log.info("getHolidays({})", year);
         String url = "https://www.hebcal.com/hebcal?v=1&cfg=json&maj=on&year=" + year;
         return fetchJson(url, "holidays for " + year);
     }

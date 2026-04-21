@@ -95,6 +95,7 @@ public class SefariaLookupTools
              + "Liturgy, Musar, Tosefta. Leave empty to search all categories.")
             String category)
     {
+        log.info("SEFARIA_SEARCH: {} {}", query, category);
         if (query == null || query.isBlank())
         {
             return "Search query must not be empty.";
@@ -186,6 +187,8 @@ public class SefariaLookupTools
              + "For commentaries: 'Rashi on BookName Chapter:Verse'.")
             String ref)
     {
+        log.info("SEFARIA_LOOKUP: {}", ref);
+
         Filter filter = Filter.newBuilder()
                 .addMust(Condition.newBuilder()
                         .setField(FieldCondition.newBuilder()

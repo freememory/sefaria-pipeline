@@ -122,8 +122,12 @@ public class LeafNode implements AgentNode
         }
 
         this.aiService = builder.build();
-        log.debug("LeafNode '{}' initialised (tools={}, mcp={})",
-                name, tools.size(), mcpTools.size());
+        log.info("LeafNode '{}' initialised — tools: {}, mcp providers: {}",
+                name,
+                tools.stream()
+                        .map(t -> t.getClass().getSimpleName())
+                        .toList(),
+                mcpTools.size());
     }
 
     // ------------------------------------------------------------------

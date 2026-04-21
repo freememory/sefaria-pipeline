@@ -2,6 +2,8 @@ package org.freememory.pipeline.agent.tools;
 
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.net.URLEncoder;
@@ -33,6 +35,8 @@ import java.time.Duration;
  */
 public class ZmanimTools
 {
+    private static final Logger log = LoggerFactory.getLogger(ZmanimTools.class);
+
     private static final String BASE_URL = "https://www.hebcal.com/zmanim";
     private static final Duration TIMEOUT = Duration.ofSeconds(10);
 
@@ -55,6 +59,7 @@ public class ZmanimTools
             @P("Date in YYYY-MM-DD format, or the word 'today' for today's date.")
             String date)
     {
+        log.info("getZmanim({}, {})", city, date);
         String resolvedDate = "today".equalsIgnoreCase(date.trim())
                 ? LocalDate.now().toString()
                 : date.trim();
