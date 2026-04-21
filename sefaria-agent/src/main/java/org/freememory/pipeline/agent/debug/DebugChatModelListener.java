@@ -26,8 +26,6 @@ import java.util.List;
  */
 public class DebugChatModelListener implements ChatModelListener
 {
-    private static final int MAX_RESULT_LEN  = 600;
-    private static final int MAX_PROMPT_LEN  = 3000;
 
     /**
      * Called just before each LLM request.
@@ -60,12 +58,7 @@ public class DebugChatModelListener implements ChatModelListener
             {
                 if (msg instanceof ToolExecutionResultMessage result)
                 {
-                    String text = result.text();
-                    if (text != null && text.length() > MAX_RESULT_LEN)
-                    {
-                        text = text.substring(0, MAX_RESULT_LEN) + "…";
-                    }
-                    DebugCollector.record("↩ " + result.toolName() + " → " + text);
+                    DebugCollector.record("↩ " + result.toolName() + " → " + result.text());
                 }
             }
         }
@@ -141,12 +134,6 @@ public class DebugChatModelListener implements ChatModelListener
 
     private static String truncate(String s)
     {
-        if (s == null)
-        {
-            return "(null)";
-        }
-        return s.length() > MAX_PROMPT_LEN
-                ? s.substring(0, MAX_PROMPT_LEN) + "\n… [truncated at " + MAX_PROMPT_LEN + " chars]"
-                : s;
+        return s != null ? s : "(null)";
     }
 }
