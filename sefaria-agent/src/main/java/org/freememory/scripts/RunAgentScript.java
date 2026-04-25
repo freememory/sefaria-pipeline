@@ -6,8 +6,11 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.qdrant.client.QdrantClient;
 import io.qdrant.client.QdrantGrpcClient;
+import io.qdrant.client.grpc.Collections.CollectionInfo;
 
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.freememory.config.ConfigLoader;
 import org.freememory.config.PipelineConfig;
 import org.freememory.config.PipelineConfig.AgentConfig;
@@ -110,6 +113,10 @@ public class RunAgentScript
                 QdrantGrpcClient.newBuilder(qdrantChannel).build()
         );
 
+        // Fail fast if Qdrant is unreachable or the collection is missing / empty.
+        checkQdrantHealth(qdrant, ac.getQdrantHost(), ac.getQdrantPort(),
+                          ac.getCollectionName());
+
         try
         {
             // Build the embedding model (must match the model used during ingest)
@@ -150,6 +157,99 @@ public class RunAgentScript
         finally
         {
             qdrant.close();
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Startup health check
+    // ------------------------------------------------------------------
+
+    /**
+     * Verifies that Qdrant is reachable and the target collection exists and
+     * contains vectors. Logs a clear, actionable error and calls
+     * {@link System#exit(int)} if any check fails — better to stop immediately
+     * than to discover the problem on the first user query.
+     *
+     * <p>Checks performed, in order:
+     * <ol>
+     *   <li>gRPC connectivity — a 5-second timeout catches connection-refused
+     *       and DNS failures before the user can even type a question.</li>
+     *   <li>Collection existence — the named collection must have been created
+     *       by the ingest pipeline (Phase 3) before the agent can run.</li>
+     *   <li>Non-zero vector count — warns (but does not exit) if the collection
+     *       exists but is empty, which usually means ingest was not run yet.</li>
+     * </ol>
+     */
+    private static void checkQdrantHealth(QdrantClient qdrant,
+                                          String host, int port,
+                                          String collectionName)
+    {
+        log.info("Checking Qdrant at {}:{} ...", host, port);
+
+        // 1 — Connectivity: collectionExistsAsync makes a real gRPC call.
+        //     A 5-second timeout is generous; a running Qdrant responds in <50 ms.
+        boolean exists;
+        try
+        {
+            exists = qdrant.collectionExistsAsync(collectionName)
+                           .get(5, TimeUnit.SECONDS);
+        }
+        catch (TimeoutException e)
+        {
+            log.error("Qdrant health check timed out after 5 seconds.");
+            log.error("Is Qdrant running at {}:{}?", host, port);
+            log.error("Start it with:");
+            log.error("  docker run -d -p 6333:6333 -p 6334:6334 qdrant/qdrant");
+            System.exit(1);
+            return; // unreachable — keeps compiler happy
+        }
+        catch (ExecutionException e)
+        {
+            log.error("Cannot connect to Qdrant at {}:{}: {}", host, port,
+                      e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
+            log.error("Is Qdrant running? Start it with:");
+            log.error("  docker run -d -p 6333:6333 -p 6334:6334 qdrant/qdrant");
+            System.exit(1);
+            return;
+        }
+        catch (InterruptedException e)
+        {
+            Thread.currentThread().interrupt();
+            log.error("Interrupted while checking Qdrant health.");
+            System.exit(1);
+            return;
+        }
+
+        // 2 — Collection existence
+        if (!exists)
+        {
+            log.error("Collection '{}' does not exist in Qdrant.", collectionName);
+            log.error("Run the ingest pipeline first (Phase 3) to populate the collection:");
+            log.error("  java -jar sefaria-ingest.jar --config <your-config.json>");
+            System.exit(1);
+            return;
+        }
+
+        // 3 — Vector count (warn only — a near-empty collection is unusual but not fatal)
+        try
+        {
+            CollectionInfo info = qdrant.getCollectionInfoAsync(collectionName)
+                                        .get(5, TimeUnit.SECONDS);
+            long vectorCount = info.getVectorsCount();
+            if (vectorCount == 0)
+            {
+                log.warn("Collection '{}' exists but contains 0 vectors.", collectionName);
+                log.warn("Queries will return no results. Run the ingest pipeline to populate it.");
+            }
+            else
+            {
+                log.info("Qdrant OK — collection '{}' has {} vectors.", collectionName, vectorCount);
+            }
+        }
+        catch (Exception e)
+        {
+            // Collection info is non-critical — we know the collection exists, so continue.
+            log.warn("Could not retrieve collection info (non-fatal): {}", e.getMessage());
         }
     }
 
