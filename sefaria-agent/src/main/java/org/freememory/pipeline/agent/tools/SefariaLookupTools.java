@@ -51,7 +51,19 @@ public class SefariaLookupTools
     private static final Logger log = LoggerFactory.getLogger(SefariaLookupTools.class);
 
     /** Number of results returned by SEFARIA_SEARCH per call. */
-    private static final int SEARCH_TOP_K = 8;
+    private static final int SEARCH_TOP_K = 5;
+
+    /**
+     * Maximum characters of text shown per result in search responses.
+     *
+     * Search is used for *discovery* — the LLM reads these snippets to decide
+     * which refs are worth fetching in full via lookupByRef().  Returning
+     * complete passages (200–450 tokens each) wastes input tokens on results
+     * the LLM may never use.  A 250-char snippet is enough to judge relevance;
+     * the LLM is then prompted to call lookupByRef() for any passage it wants
+     * to actually cite.  This reduces search tool output by roughly 80%.
+     */
+    private static final int SEARCH_SNIPPET_CHARS = 250;
 
     private final QdrantClient   qdrant;
     private final EmbeddingModel embeddingModel;
@@ -72,19 +84,18 @@ public class SefariaLookupTools
 
     @Tool("""
         Search the Sefaria database for texts related to a topic, concept, or question.
-        Use this to retrieve primary sources from the vector database using semantic search.
+        Use this to discover relevant sources via semantic search.
 
-        IMPORTANT — call this tool multiple times with DIFFERENT search angles for
-        comprehensive questions. For example, for "Hallel on Yom HaAtzmaut" you might call:
-          1. searchSefaria("Hallel Yom HaAtzmaut opinions")
-          2. searchSefaria("Hallel incomplete Rosh Chodesh custom")
-          3. searchSefaria("Yom HaAtzmaut Israeli independence halacha responsa")
-          4. searchSefaria("contemporary poskim Israeli holidays celebration")
+        Each result shows a SHORT SNIPPET (~250 chars) plus the ref and category.
+        Snippets are for relevance-judging only — once you identify a ref you want to
+        cite or quote, call lookupByRef() on that specific ref to get its complete text.
 
-        Each call returns up to 8 chunks from both English and Hebrew sources.
-        Combine results from multiple calls for thorough, source-rich answers.
+        For comprehensive questions call this tool 1-3 times with different angles. Examples
+        for "Hallel on Yom HaAtzmaut":
+          1. searchSefaria("Hallel Yom HaAtzmaut contemporary responsa", "")
+          2. searchSefaria("Hallel incomplete recitation when permitted", "Talmud")
 
-        Use SEFARIA_LOOKUP to fetch the full text of a specific ref found in the results.
+        Each call returns up to 5 snippet results from English and Hebrew sources.
         """)
     public String searchSefaria(
             @P("The search query — phrase it as a specific topic, concept, ruling, or question. "
@@ -169,23 +180,36 @@ public class SefariaLookupTools
 
             if (text != null && !text.isBlank())
             {
+                // Return a snippet only — the LLM calls lookupByRef() for full text.
+                String snippet = text.length() > SEARCH_SNIPPET_CHARS
+                        ? text.substring(0, SEARCH_SNIPPET_CHARS) + "… [call lookupByRef(\"" + ref + "\") for full text]"
+                        : text;
                 sb.append(String.format("[%s | %s | %s | %s | score=%.3f]\n%s\n\n",
-                        ref, title, cat, lang, point.getScore(), text));
+                        ref, title, cat, lang, point.getScore(), snippet));
             }
         }
 
         return sb.toString().strip();
     }
 
-    @Tool("Retrieve the exact text of a Sefaria passage by its canonical reference. "
-        + "Use this when you know the specific citation (e.g. 'Shabbat 2a', "
-        + "'Genesis 1:1', 'Mishneh Torah Laws of Prayer 2:4', "
-        + "'Rashi on Genesis 1:1'). Returns the text and metadata.")
+    @Tool("""
+        Retrieve a Sefaria passage by its canonical reference (e.g. 'Shabbat 2a',
+        'Genesis 1:1', 'Mishneh Torah Laws of Prayer 2:4', 'Rashi on Genesis 1:1').
+
+        Set fullText=true (default) to get the complete passage for reading or quoting.
+        Set fullText=false to get only a short snippet (~250 chars) when you just need
+        to verify a ref exists or check whether it is relevant before deciding to read it.
+
+        Always use fullText=true when you are going to cite or quote the passage in your answer.
+        """)
     public String lookupByRef(
             @P("The canonical Sefaria reference string. Use the standard format: "
              + "'BookName Chapter:Verse' or 'Tractate DafSide' for Talmud. "
              + "For commentaries: 'Rashi on BookName Chapter:Verse'.")
-            String ref)
+            String ref,
+            @P("true to return the complete text (use when quoting or citing); "
+             + "false to return only a short snippet (use when checking relevance).")
+            boolean fullText)
     {
         log.info("SEFARIA_LOOKUP: {}", ref);
 
@@ -226,8 +250,13 @@ public class SefariaLookupTools
 
                 if (text != null && !text.isBlank())
                 {
+                    String displayed = fullText ? text
+                            : (text.length() > SEARCH_SNIPPET_CHARS
+                               ? text.substring(0, SEARCH_SNIPPET_CHARS)
+                                 + "… [call lookupByRef(\"" + foundRef + "\", true) for full text]"
+                               : text);
                     sb.append(String.format("[%s | %s | %s]\n%s\n\n",
-                            foundRef, title, lang, text));
+                            foundRef, title, lang, displayed));
                 }
             }
 

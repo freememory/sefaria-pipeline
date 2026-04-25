@@ -52,9 +52,21 @@ public final class ModelFactory
     private ModelFactory() {}
 
     /**
+     * Maximum retry attempts after a {@link dev.langchain4j.exception.RateLimitException}.
+     *
+     * The built model is wrapped in {@link RetryingChatModel} so rate-limit
+     * errors inside the agentic tool loop are transparently retried with
+     * exponential backoff (15 s → 30 s → 60 s) rather than surfacing as errors.
+     */
+    private static final int RATE_LIMIT_RETRIES = 3;
+
+    /**
      * Build a {@link ChatModel} for the given {@link ModelConfig}.
      *
-     * @param cfg    provider + modelId to instantiate
+     * The returned model is always wrapped in {@link RetryingChatModel} so
+     * transient rate-limit errors are handled automatically.
+     *
+     * @param cfg       provider + modelId to instantiate
      * @param agentCfg  root agent config (used to resolve API keys and base URLs)
      * @throws IllegalArgumentException for unknown or misconfigured providers
      */
@@ -75,7 +87,7 @@ public final class ModelFactory
         log.debug("Creating ChatModel: provider={} modelId={} maxTokens={} debug={}",
                 provider, modelId, maxTokens, agentCfg.isDebugMode());
 
-        return switch (provider)
+        ChatModel raw = switch (provider)
         {
             case "anthropic" ->
             {
@@ -140,6 +152,10 @@ public final class ModelFactory
                     + "Supported: anthropic, openai, google, mistral, ollama"
             );
         };
+
+        // Wrap with retry so transient rate-limit errors are handled
+        // automatically inside the agentic tool loop.
+        return new RetryingChatModel(raw, RATE_LIMIT_RETRIES);
     }
 
     // ------------------------------------------------------------------
