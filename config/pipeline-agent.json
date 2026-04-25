@@ -29,7 +29,7 @@
     "qdrantPort":     6334,
     "collectionName": "sefaria_texts",
 
-    "chatMemorySize": 6,
+    "chatMemorySize": 30,
 
     "_comment_location": "Default city/timezone for DateTimeTools and zmanim. Change to your city.",
     "defaultLocation": {
