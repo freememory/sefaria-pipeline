@@ -1,5 +1,6 @@
 package org.freememory.pipeline.agent.http;
 
+import dev.langchain4j.exception.RateLimitException;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.json.JsonArray;
@@ -59,6 +60,25 @@ public class AgentHttpServer
 
     /** Seconds the browser should wait before auto-retrying on a rate-limit response. */
     private static final int RATE_LIMIT_RETRY_AFTER_SECS = 30;
+
+    /**
+     * How many times to retry a rate-limited agent call on the worker thread
+     * before giving up and returning HTTP 429 to the browser.
+     *
+     * <p>Each retry waits {@code attempt * RATE_LIMIT_RETRY_AFTER_SECS} seconds,
+     * giving Anthropic's 1-minute sliding window time to partially reset:
+     * <pre>
+     *   attempt 1 failed → wait 20 s
+     *   attempt 2 failed → wait 40 s
+     *   attempt 3 failed → wait 60 s → give up, return 429
+     * </pre>
+     * The worker-thread time limit is 5 minutes, so three waits (120 s total)
+     * plus agent processing time stays well within budget.
+     */
+    private static final int RATE_LIMIT_MAX_RETRIES = 3;
+
+    /** Base wait in milliseconds between rate-limit retries (doubles each attempt). */
+    private static final long RATE_LIMIT_BASE_WAIT_MS = 20_000L;
 
     private final Vertx  vertx;
     private final AgentNode root;
@@ -228,15 +248,42 @@ public class AgentHttpServer
     }
 
     /**
-     * Calls the agent tree, letting all exceptions propagate immediately.
-     * Rate-limit errors surface as HTTP 429 with a retryAfter hint so the
-     * browser can count down and re-send — no worker thread is blocked waiting.
+     * Calls the agent tree with automatic retry on rate-limit errors.
+     *
+     * <p>This method runs on a Vert.x worker thread (not the event loop), so
+     * it is safe to block with {@link Thread#sleep} while waiting between retries.
+     * The worker time limit is 5 minutes — generous enough for three waits.
+     *
+     * <p>After {@link #RATE_LIMIT_MAX_RETRIES} failed attempts the exception is
+     * rethrown and the caller returns HTTP 429 to the browser.
      */
     private String handleWithRetry(ConversationContext convCtx,
                                    String message,
                                    String sid) throws Exception
     {
-        return root.handle(convCtx, message);
+        for (int attempt = 0; attempt <= RATE_LIMIT_MAX_RETRIES; attempt++)
+        {
+            try
+            {
+                return root.handle(convCtx, message);
+            }
+            catch (RateLimitException e)
+            {
+                if (attempt == RATE_LIMIT_MAX_RETRIES)
+                {
+                    log.error("[{}] Rate limit persists after {} retries — returning 429",
+                              sid, RATE_LIMIT_MAX_RETRIES);
+                    throw e;
+                }
+                long waitMs = RATE_LIMIT_BASE_WAIT_MS * (attempt + 1); // 20s, 40s, 60s
+                log.warn("[{}] Rate limit hit (attempt {}/{}). Waiting {} s …",
+                         sid, attempt + 1, RATE_LIMIT_MAX_RETRIES, waitMs / 1000);
+                Thread.sleep(waitMs);
+                // Reset the conversation turn counter so the retry starts fresh
+                convCtx.startTurn();
+            }
+        }
+        throw new IllegalStateException("handleWithRetry: unreachable");
     }
 
     /** Returns true if the exception is a provider rate-limit error. */
