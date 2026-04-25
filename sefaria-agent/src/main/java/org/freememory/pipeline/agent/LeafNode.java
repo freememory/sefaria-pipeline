@@ -106,7 +106,15 @@ public class LeafNode implements AgentNode
                             .Builder()
                             .maxMessages(chatMemorySize)
                             .build();
-                });
+                })
+                // Hard cap on the tool-call loop.  Without this the LLM can
+                // issue dozens of sequential tool calls (searchSefaria +
+                // lookupByRef chains), burning tokens, hitting rate limits,
+                // and eventually producing a garbled or empty response.
+                // 10 allows: 3 searches + 5 lookups + 2 calendar/zmanim calls.
+                // After the cap is reached LangChain4j forces a final response
+                // with whatever context has been gathered.
+                .maxSequentialToolsInvocations(10);
 
         // Register built-in @Tool providers
         if (!tools.isEmpty())
