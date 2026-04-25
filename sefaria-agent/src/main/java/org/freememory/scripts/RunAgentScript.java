@@ -235,15 +235,21 @@ public class RunAgentScript
         {
             CollectionInfo info = qdrant.getCollectionInfoAsync(collectionName)
                                         .get(5, TimeUnit.SECONDS);
-            long vectorCount = info.getVectorsCount();
-            if (vectorCount == 0)
+            long pointCount = info.hasPointsCount() ? info.getPointsCount() : -1;
+            if (pointCount == 0)
             {
-                log.warn("Collection '{}' exists but contains 0 vectors.", collectionName);
+                log.warn("Collection '{}' exists but contains 0 points.", collectionName);
                 log.warn("Queries will return no results. Run the ingest pipeline to populate it.");
+            }
+            else if (pointCount > 0)
+            {
+                log.info("Qdrant OK — collection '{}' has {} points ({} indexed vectors).",
+                         collectionName, pointCount,
+                         info.hasIndexedVectorsCount() ? info.getIndexedVectorsCount() : "?");
             }
             else
             {
-                log.info("Qdrant OK — collection '{}' has {} vectors.", collectionName, vectorCount);
+                log.info("Qdrant OK — collection '{}' is ready.", collectionName);
             }
         }
         catch (Exception e)
